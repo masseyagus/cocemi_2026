@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.urls]
-source = "..."
+source = "https://github.com/masseyagus/cocemi_2026.git"
 
 # ─────────── Dependencias de desarrollo ───────────
 [dependency-groups]
