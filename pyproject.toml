@@ -1,0 +1,66 @@
+[project]
+name = "cocemi"
+version = "0.1.0"
+description = "Librería para visualización de señales con archivos en formato BIDS."
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+    {name = "Agustín Quintana", email = "agustingabriel2002@gmail.com"},
+]
+
+dependencies = [
+    "numpy",
+    "scipy",
+    "mne",
+    "pandas",
+    "PyQt5",
+    "pyqtgraph",
+    "matplotlib",
+]
+
+[project.urls]
+source = "..."
+
+# ─────────── Dependencias de desarrollo ───────────
+[dependency-groups]
+dev = [
+    "ruff>=0.4",
+]
+
+[tool.ruff]
+line-length = 115
+extend-exclude = ["*.ipynb"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "D", "N"]
+ignore = [
+    "W291",
+    "W293",
+    "D202",
+    "N802",
+    "D100",
+    "D103",
+    "D413",
+    "D212",
+    "D205",
+    "D203",
+    "D200"
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+"tests/**/*.py" = ["D"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pyright]
+reportMissingTypeStubs = false
