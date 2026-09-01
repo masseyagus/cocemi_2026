@@ -15,23 +15,19 @@ class MainWindow(QWidget):
     Ventana principal para la reproducción y visualización de señales.
 
     Integra el motor de reproducción, el widget de visualización y los
-    controles de reproducción. Recibe una señal en memoria y genera
-    ventanas sucesivas de muestras para su representación. Puede mostrar
-    simultáneamente una señal cruda y una señal filtrada, además de
-    superponer eventos procedentes de un archivo `events.tsv` en formato
-    BIDS.
+    controles de reproducción. Recibe una señal multicanal en memoria y
+    actualiza periódicamente una ventana de muestras para su representación.
 
-    La reproducción se realiza mediante un `QTimer` que ejecuta
-    periódicamente `PlaybackEngine.tick()`. La frecuencia de muestreo y
-    el período del temporizador determinan la cantidad de muestras
-    avanzadas en cada actualización.
+    La reproducción se controla mediante un `QTimer`, que ejecuta
+    periódicamente `PlaybackEngine.tick()`. Los cambios de posición del motor
+    actualizan la ventana visible y la posición mostrada en los controles.
 
     Args:
-        signal (np.ndarray): Señal cruda con forma
+        signal (np.ndarray): Señal multicanal con forma
             `(n_canales, n_muestras)`.
-        signal_filt (np.ndarray, optional): Señal filtrada con la misma
-            forma que `signal`. Si no se proporciona, se utiliza `signal`
-            también como señal filtrada.
+        channel_names (list of str, optional): Nombres de los canales que se
+            mostrarán en el widget de visualización. Si no se proporcionan,
+            el comportamiento depende de `SignalDisplayWidget`.
         events_path (str, optional): Ruta a un archivo `events.tsv` en
             formato BIDS. Si no se proporciona, no se cargan eventos.
         sfreq (float): Frecuencia de muestreo de la señal, en Hz.
@@ -42,70 +38,36 @@ class MainWindow(QWidget):
             milisegundos.
 
     Raises:
-        ValueError: Si `signal` no tiene dos dimensiones.
-
-    Attributes:
-        signal (np.ndarray): Señal cruda almacenada en memoria.
-        signal_filt (np.ndarray): Señal filtrada utilizada para la
-            visualización.
-        n_channels (int): Número de canales de la señal.
-        n_samples (int): Número total de muestras de la señal.
-        sfreq (float): Frecuencia de muestreo de la señal.
-        events (list): Eventos cargados desde el archivo BIDS, o lista
-            vacía si no se proporciona un archivo.
-        engine (PlaybackEngine): Motor encargado de controlar la posición
-            de reproducción.
-        display (SignalDisplayWidget): Widget encargado de representar
-            las señales y los eventos.
-        controls (PlaybackControls): Widget con los controles de
-            reproducción.
+        ValueError: Si `signal` no es un array bidimensional.
     """
 
-    def __init__(self, signal: np.ndarray, signal_filt: None|np.ndarray = None,
+    def __init__(self, signal: np.ndarray, channel_names: None|list = None,
                  events_path: None|str = None, sfreq: float = 250.0,
                  window_size: int = 1500, scale_factor: float = 50,
                  refresh_ms: int = 20):
         """
         Inicializa la ventana principal y sus componentes de reproducción.
 
-        Valida la dimensionalidad de la señal, configura los datos de
-        reproducción y, opcionalmente, carga los eventos BIDS. Luego crea
-        el motor de reproducción, el widget de visualización y los
-        controles, conecta sus señales y pone en marcha el temporizador.
-
-        La cantidad de muestras avanzadas en cada actualización se calcula
-        a partir de `sfreq` y `refresh_ms`.
+        Valida la dimensión de la señal, carga opcionalmente los eventos BIDS,
+        crea el motor de reproducción, configura el widget de visualización y
+        los controles, y establece el temporizador encargado de actualizar la
+        reproducción.
 
         Args:
-            signal (np.ndarray): Señal cruda con forma
+            signal (np.ndarray): Señal multicanal con forma
                 `(n_canales, n_muestras)`.
-            signal_filt (np.ndarray, optional): Señal filtrada utilizada
-                para la visualización. Si es `None`, se utiliza `signal`.
-            events_path (str, optional): Ruta al archivo `events.tsv`
-                desde el que se cargarán los eventos.
-            sfreq (float): Frecuencia de muestreo, en Hz.
-            window_size (int): Tamaño de la ventana visible, en muestras.
-            scale_factor (float): Factor de escala aplicado durante la
-                visualización.
-            refresh_ms (int): Intervalo del temporizador, en milisegundos.
+            channel_names (list of str, optional): Nombres de los canales.
+            events_path (str, optional): Ruta al archivo `events.tsv` con los
+                eventos BIDS.
+            sfreq (float): Frecuencia de muestreo en Hz.
+            window_size (int): Tamaño de la ventana visible en muestras.
+            scale_factor (float): Factor de escala vertical utilizado por el
+                widget de visualización.
+            refresh_ms (int): Intervalo de actualización del temporizador, en
+                milisegundos.
 
-        Returns:
-            None
-
-        Notes:
-            - `signal` debe tener exactamente dos dimensiones.
-            - El número de canales y muestras se obtiene directamente de
-              `signal.shape`.
-            - Si no se proporciona `signal_filt`, se utiliza la señal cruda
-              para ambos tipos de visualización.
-            - Si no se proporciona `events_path`, `events` se inicializa
-              como una lista vacía.
-            - El avance por actualización se calcula como
-              `max(1, round(sfreq * refresh_ms / 1000))`.
-            - El temporizador se inicia inmediatamente después de conectar
-              sus señales.
-            - La vista se actualiza inicialmente utilizando la posición
-              inicial del motor de reproducción.
+        Raises:
+            ValueError: Si `signal.ndim` es diferente de 2.
         """
         super().__init__()
 
@@ -113,7 +75,6 @@ class MainWindow(QWidget):
             raise ValueError("`signal` debe tener forma (n_canales, n_muestras).")
 
         self.signal = signal
-        self.signal_filt = signal_filt if signal_filt is not None else signal
         self.n_channels, self.n_samples = signal.shape
         self.sfreq = sfreq
 
@@ -122,13 +83,12 @@ class MainWindow(QWidget):
         self.setWindowTitle("NeuroIA GUI — Reproductor de señales")
         self.setGeometry(45, 80, 1600, 900)
 
-        # Muestras por tick, calculadas a partir de sfreq para que la
-        # reproducción avance a velocidad real (no a una velocidad arbitraria).
         step = max(1, round(sfreq * refresh_ms / 1000))
         self.engine = PlaybackEngine(self.n_samples, window_size, step=step)
 
+        # Pasamos channel_names al widget actualizado
         self.display = SignalDisplayWidget(
-            channel_names=self.n_channels,
+            channel_names=channel_names,
             window_size=self.engine.window_size,
             scale_factor=scale_factor,
         )
@@ -152,19 +112,13 @@ class MainWindow(QWidget):
         """
         Conecta las señales de los componentes de la interfaz.
 
-        Conecta los cambios de posición del motor con la actualización de
-        la vista, y conecta los botones de retroceso y avance directamente
-        con sus operaciones correspondientes del motor. El botón de
-        reproducción/pausa se conecta al método que alterna su estado.
+        Conecta los cambios de posición del motor con la actualización de la
+        vista, los controles de avance y retroceso con las acciones
+        correspondientes del motor y el control de reproducción/pausa con el
+        método encargado de actualizar su estado.
 
         Returns:
             None
-
-        Notes:
-            - `position_changed` se conecta a `_refresh_view`.
-            - `prev_clicked` se conecta a `step_backward`.
-            - `next_clicked` se conecta a `step_forward`.
-            - `play_pause_clicked` se conecta a `_toggle_play_pause`.
         """
         self.engine.position_changed.connect(self._refresh_view)
         self.controls.prev_clicked.connect(self.engine.step_backward)
@@ -173,11 +127,10 @@ class MainWindow(QWidget):
 
     def _toggle_play_pause(self):
         """
-        Alterna el estado de reproducción y actualiza el control asociado.
+        Alterna el estado de reproducción del motor.
 
-        Cambia el estado de pausa del motor mediante `play_pause()` y
-        actualiza el texto del botón de reproducción/pausa según el nuevo
-        estado.
+        Ejecuta `PlaybackEngine.play_pause()` y actualiza la etiqueta del control
+        de reproducción de acuerdo con el nuevo estado.
 
         Returns:
             None
@@ -187,43 +140,29 @@ class MainWindow(QWidget):
 
     def _refresh_view(self, pos: int):
         """
-        Actualiza la ventana visible de señales, eventos y posición.
+        Actualiza la ventana visible de la señal para una posición determinada.
 
-        Calcula los límites de la ventana a partir de la posición actual
-        y el tamaño de ventana del motor. Extrae de la señal cruda y de la
-        señal filtrada las muestras correspondientes y las envía al widget
-        de visualización.
-
-        También actualiza los eventos visibles para la misma ventana y
-        modifica la etiqueta de posición de los controles.
+        Calcula los límites de la ventana a partir de la posición actual del
+        reproductor, extrae las muestras correspondientes de todos los canales,
+        actualiza la visualización de la señal y de los eventos, y modifica la
+        etiqueta de posición de los controles.
 
         Args:
-            pos (int): Posición actual de reproducción, utilizada como
-                límite superior de la ventana visible.
+            pos (int): Posición final de la ventana en muestras.
 
         Returns:
             None
-
-        Notes:
-            - El inicio de la ventana se calcula como
-              `pos - window_size`.
-            - El final de la ventana coincide con `pos`.
-            - `x_data` contiene las muestras desde `start` hasta `end - 1`.
-            - Se extraen todos los canales mediante `signal[:, start:end]`.
-            - La señal filtrada se extrae mediante el mismo intervalo.
-            - La actualización de señales y eventos se delega a
-              `SignalDisplayWidget`.
-            - La posición mostrada en los controles incluye la posición
-              actual y el total de muestras.
         """
         start = pos - self.engine.window_size
         end = pos
 
         x_data = np.arange(start, end)
-        y_raw_window = self.signal[:, start:end]
-        y_filt_window = self.signal_filt[:, start:end]
+        
+        # Ahora solo extraemos una ventana de datos
+        y_window = self.signal[:, start:end]
 
-        self.display.update_data(x_data, y_raw_window, y_filt_window)
+        # Actualizamos pasando únicamente (x, y)
+        self.display.update_data(x_data, y_window)
         self.display.update_events(self.events, start, end)
         self.controls.set_position_label(pos, self.n_samples)
 
@@ -231,59 +170,52 @@ class MainWindow(QWidget):
         """
         Detiene el temporizador de reproducción al cerrar la ventana.
 
-        Comprueba si existe el temporizador y si se encuentra activo.
-        En ese caso, lo detiene antes de aceptar el evento de cierre.
+        Si el temporizador está creado y activo, se detiene antes de aceptar el
+        evento de cierre.
 
         Args:
-            event (QCloseEvent): Evento generado al solicitar el cierre
-                de la ventana.
+            event (QCloseEvent): Evento de cierre de la ventana.
 
         Returns:
             None
-
-        Notes:
-            - El temporizador solo se detiene si existe y está activo.
-            - El evento de cierre se acepta mediante `event.accept()`.
         """
         if hasattr(self, "_timer") and self._timer.isActive():
             self._timer.stop()
         event.accept()
 
 
-def launch_viewer(signal: np.ndarray, signal_filt: None|np.ndarray = None,
-                   events_path: None|str = None, sfreq: float = 250.0,
-                   window_size: int = 1500, scale_factor: float = 50):
+def launch_viewer(signal: np.ndarray, channel_names: None|list = None,
+                  events_path: None|str = None, sfreq: float = 250.0,
+                  window_size: int = 1500, scale_factor: float = 50):
     """
     Crea y ejecuta el visor de señales.
 
-    Obtiene una instancia existente de `QApplication` o crea una nueva si
-    no existe. Luego instancia `MainWindow` con los datos proporcionados,
-    muestra la ventana y ejecuta el bucle de eventos de la aplicación.
+    Inicializa la aplicación Qt si todavía no existe, crea una instancia de
+    `MainWindow` con los parámetros proporcionados, muestra la ventana y
+    ejecuta el ciclo de eventos de la aplicación.
 
     Args:
-        signal (np.ndarray): Señal a visualizar con forma
+        signal (np.ndarray): Señal multicanal con forma
             `(n_canales, n_muestras)`.
-        signal_filt (np.ndarray, optional): Señal filtrada a visualizar.
-            Si no se proporciona, `MainWindow` utiliza `signal`.
+        channel_names (list of str, optional): Nombres de los canales.
         events_path (str, optional): Ruta a un archivo `events.tsv` en
             formato BIDS.
-        sfreq (float): Frecuencia de muestreo de la señal, en Hz.
-        window_size (int): Tamaño de la ventana visible, en muestras.
+        sfreq (float): Frecuencia de muestreo en Hz.
+        window_size (int): Tamaño de la ventana visible en muestras.
         scale_factor (float): Factor de escala utilizado para visualizar
             las señales.
 
     Returns:
         None
-
-    Notes:
-        - Si ya existe una instancia de `QApplication`, se reutiliza.
-        - La ventana se muestra mediante `show()`.
-        - La ejecución queda a cargo del bucle de eventos de Qt.
-        - La función finaliza mediante `sys.exit()` con el resultado de
-          `app.exec_()`.
     """
     app = QApplication.instance() or QApplication(sys.argv)
-    window = MainWindow(signal, signal_filt=signal_filt, events_path=events_path,
-                         sfreq=sfreq, window_size=window_size, scale_factor=scale_factor)
+    window = MainWindow(
+        signal=signal, 
+        channel_names=channel_names, 
+        events_path=events_path,
+        sfreq=sfreq, 
+        window_size=window_size, 
+        scale_factor=scale_factor
+    )
     window.show()
     sys.exit(app.exec_())
