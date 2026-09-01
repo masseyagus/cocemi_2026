@@ -65,6 +65,7 @@ htmlcov/
 
 # Archivos personales
 **/tests/dataset
+**/data
 
 # Workspaces de VS Code
 *.code-workspace
