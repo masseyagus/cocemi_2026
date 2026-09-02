@@ -8,6 +8,8 @@ Uso
 `señal.npy` debe contener un array de forma (n_canales, n_muestras).
 """
 import argparse
+import ctypes
+import sys
 
 import numpy as np
 
@@ -44,10 +46,13 @@ def parse_args():
                          help="Factor de escala/ganancia vertical entre canales.")
     parser.add_argument("--highpass", type=float, default=0.5,
                          help="Corte del pasa-altos de visualización, en Hz. 0 para desactivarlo.")
+    parser.add_argument("--lowpass", type=float, default=100.0,
+                         help="Corte del pasa-bajos de visualización, en Hz. 0 para desactivarlo.")
     parser.add_argument("--notch", type=float, default=50.0,
                          help="Frecuencia de línea a remover, en Hz (50 o 60). 0 para desactivarlo.")
+    parser.add_argument("--speed", type=float, default=0.25,
+                     help="Velocidad de reproducción (1.0 = tiempo real, <1 = más lento).")
     return parser.parse_args()
-
 
 
 def main():
@@ -67,6 +72,12 @@ def main():
 
     signal = np.load(args.signal)
 
+    if sys.platform == "win32":
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception as e:
+            print(f"No se pudo aplicar el awareness de DPI: {e}")
+
     launch_viewer(
         signal,
         channels_idx=args.channels,
@@ -76,6 +87,8 @@ def main():
         scale_factor=args.scale,
         highpass=args.highpass or None,
         notch=args.notch or None,
+        playback_rate=args.speed,
+        lowpass=args.lowpass
     )
 
 if __name__ == "__main__":
