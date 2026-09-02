@@ -14,13 +14,15 @@ class SignalDisplayWidget(QWidget):
     simultánea.
 
     La señal completa puede cargarse una única vez mediante
-    `load_full_signal()`. Durante la reproducción, la ventana visible se
-    desplaza mediante `set_view_range()` sin modificar los datos almacenados
-    en las curvas.
+    `load_full_signal()`. El eje X utiliza tiempos expresados en segundos.
+    Durante la reproducción, la ventana visible se desplaza mediante
+    `set_view_range()` sin modificar los datos almacenados en las curvas.
 
     También permite mostrar eventos como líneas verticales en posiciones
-    absolutas de la señal. Los eventos se cargan una única vez mediante
-    `set_events()` y permanecen fijos mientras se modifica el rango visible.
+    absolutas de tiempo. Los eventos se cargan una única vez mediante
+    `set_events()` y sus posiciones se convierten de muestras a segundos
+    utilizando la frecuencia de muestreo proporcionada. Una vez cargados,
+    permanecen fijos mientras se modifica el rango visible.
 
     Args:
         channel_names (list): Lista con los nombres de los canales. Es
@@ -70,6 +72,7 @@ class SignalDisplayWidget(QWidget):
             - El gráfico utiliza un `QVBoxLayout`, ya que se muestra un único
             gráfico.
             - Las líneas de eventos se almacenan en `_event_lines`.
+            - El eje temporal del gráfico se expresa en segundos.
         """
         super().__init__()
 
@@ -119,7 +122,7 @@ class SignalDisplayWidget(QWidget):
             - El fondo del gráfico se establece en blanco.
             - Se habilita la grilla en ambos ejes.
             - El eje Y se etiqueta como `"Canales"`.
-            - El eje X se etiqueta como `"Muestras"`.
+            - El eje X se etiqueta como `"Tiempos (s)"`.
             - Se habilita el autoajuste del eje Y.
             - Se utiliza downsampling mediante el modo `"peak"`.
             - Se activa el recorte de los datos a la región visible.
@@ -127,7 +130,7 @@ class SignalDisplayWidget(QWidget):
         plot_widget.setBackground('w')
         plot_widget.showGrid(x=True, y=True)
         plot_widget.setLabel("left", "Canales", **styles)
-        plot_widget.setLabel("bottom", "Muestras", **styles)
+        plot_widget.setLabel("bottom", "Tiempos (s)", **styles)
         plot_widget.enableAutoRange(axis='y')
         plot_widget.setDownsampling(mode='peak', auto=True)
         plot_widget.setClipToView(True)
@@ -145,10 +148,11 @@ class SignalDisplayWidget(QWidget):
         Notes:
             - El número de curvas creadas coincide con `n_channels`.
             - Las curvas se crean inicialmente sin datos.
+            - Las curvas se representan utilizando un trazo azul.
         """
         self.curves = []
         for _ in range(self.n_channels):
-            curve = self.plot.plot(pen="#000000")
+            curve = self.plot.plot(pen="#004CFF")
             self.curves.append(curve)
 
     def channel_ticks(self, spacing):
@@ -168,7 +172,7 @@ class SignalDisplayWidget(QWidget):
             - La primera etiqueta se posiciona en `spacing / 2`.
             - Cada canal posterior se desplaza verticalmente según `spacing`.
             - Se utilizan los nombres originales almacenados en
-              `channel_names`.
+            `channel_names`.
         """
         ticks = []
         for i, name in enumerate(self.channel_names):
@@ -184,13 +188,14 @@ class SignalDisplayWidget(QWidget):
         Carga la señal completa en las curvas del gráfico.
 
         Los datos se incorporan una única vez a las curvas de `pyqtgraph`.
+        El vector del eje X representa los tiempos de la señal en segundos.
         Posteriormente, el desplazamiento temporal de la visualización se realiza
         mediante `set_view_range()`, sin volver a extraer ni cargar ventanas de
         datos.
 
         Args:
-            x_data (array-like): Vector de muestras compartido por todos los
-                canales, típicamente generado mediante `np.arange(n_muestras)`.
+            x_data (array-like): Vector de tiempos en segundos compartido por
+                todos los canales.
             y_data (array-like): Señal completa con forma
                 `(n_canales, n_muestras)`.
 
@@ -211,40 +216,51 @@ class SignalDisplayWidget(QWidget):
         """
         Actualiza el rango temporal visible del gráfico sin modificar los datos.
 
+        Los límites del rango corresponden a tiempos expresados en segundos,
+        utilizando la misma escala temporal que el eje X de las curvas.
+
         Args:
-            start (int): Primera muestra del rango temporal visible.
-            end (int): Última muestra del rango temporal visible.
+            start (float): Tiempo inicial del rango visible, en segundos.
+            end (float): Tiempo final del rango visible, en segundos.
 
         Returns:
             None
         """
         self.plot.setXRange(start, end, padding=0)  # type: ignore
 
-    def set_events(self, events):
+    def set_events(self, events, sfreq):
         """
-        Carga y representa todos los eventos en sus posiciones absolutas.
+        Carga y representa todos los eventos en sus posiciones temporales
+        absolutas.
 
-        Las líneas de eventos se agregan al gráfico utilizando `onset_sample` como
-        posición sobre el eje X. Una vez cargadas, permanecen fijas mientras se
-        modifica el rango temporal visible mediante `set_view_range()`.
+        Convierte la posición de cada evento desde muestras a segundos mediante
+        la frecuencia de muestreo proporcionada y agrega una línea vertical en
+        la posición temporal correspondiente. Una vez cargados, los eventos
+        permanecen fijos mientras se modifica el rango temporal visible mediante
+        `set_view_range()`.
 
         Args:
             events (list): Lista de eventos que contienen `onset_sample` y
                 `trial_type` (ver `utils.bids_events.load_bids_events`).
+            sfreq (float): Frecuencia de muestreo utilizada para convertir
+                `onset_sample` de muestras a segundos.
 
         Returns:
             None
 
         Notes:
-            Los eventos se representan en la misma escala absoluta de muestras
-            utilizada por `load_full_signal()`, por lo que no es necesario
-            recalcularlos al desplazar la ventana visible.
+            Los eventos se representan en la misma escala temporal en segundos
+            utilizada por el eje X de `load_full_signal()`, por lo que no es
+            necesario recalcularlos al desplazar la ventana visible.
         """
         self._clear_event_lines()
 
         for ev in events:
+
+            pos_sec = ev.onset_sample / sfreq
+            
             line = pg.InfiniteLine(
-                pos=ev.onset_sample, angle=90,
+                pos=pos_sec, angle=90,
                 pen=pg.mkPen("#D62728", width=1.5, style=QtCore.Qt.DashLine),  # type: ignore
                 label=ev.trial_type,
                 labelOpts={"position": 0.95, "color": "#D62728"},
