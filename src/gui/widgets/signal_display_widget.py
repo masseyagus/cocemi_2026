@@ -13,8 +13,14 @@ class SignalDisplayWidget(QWidget):
     verticalmente en posiciones independientes para facilitar su visualización
     simultánea.
 
-    También permite mostrar eventos como líneas verticales sobre el gráfico.
-    Los eventos visibles se recalculan para cada ventana de muestras.
+    La señal completa puede cargarse una única vez mediante
+    `load_full_signal()`. Durante la reproducción, la ventana visible se
+    desplaza mediante `set_view_range()` sin modificar los datos almacenados
+    en las curvas.
+
+    También permite mostrar eventos como líneas verticales en posiciones
+    absolutas de la señal. Los eventos se cargan una única vez mediante
+    `set_events()` y permanecen fijos mientras se modifica el rango visible.
 
     Args:
         channel_names (list): Lista con los nombres de los canales. Es
@@ -173,41 +179,24 @@ class SignalDisplayWidget(QWidget):
         # Configuramos los ticks en el eje Y
         self.plot.getAxis('left').setTicks([ticks, []])
 
-    def update_data(self, x_data, y_data):
+    def load_full_signal(self, x_data, y_data):
         """
-        Actualiza las curvas con una nueva ventana de datos.
+        Carga la señal completa en las curvas del gráfico.
 
-        Recibe el vector de muestras de la ventana visible y una señal
-        organizada por canales. Para cada canal disponible, multiplica la
-        señal por `scale_factor` y la desplaza verticalmente según su posición
-        en el gráfico.
-
-        Finalmente, establece directamente el rango del eje X utilizando
-        el primer y último valor de `x_data`.
+        Los datos se incorporan una única vez a las curvas de `pyqtgraph`.
+        Posteriormente, el desplazamiento temporal de la visualización se realiza
+        mediante `set_view_range()`, sin volver a extraer ni cargar ventanas de
+        datos.
 
         Args:
-            x_data (array-like): Vector de muestras correspondiente a la
-                ventana visible.
-            y_data (array-like): Señal a representar, organizada por canal,
-                con forma `(n_canales, n_muestras_ventana)`.
+            x_data (array-like): Vector de muestras compartido por todos los
+                canales, típicamente generado mediante `np.arange(n_muestras)`.
+            y_data (array-like): Señal completa con forma
+                `(n_canales, n_muestras)`.
 
         Returns:
             None
-
-        Notes:
-            - Si `x_data` está vacío, el método finaliza sin actualizar
-            el gráfico.
-            - `x_data` se convierte a `numpy.ndarray` si no lo es.
-            - Cada canal se multiplica por `scale_factor`.
-            - Cada canal se desplaza verticalmente utilizando una separación
-            fija de 200 unidades.
-            - Solo se actualizan las curvas cuyo índice existe en `y_data`.
-            - El rango X se establece sin padding utilizando los extremos
-            de `x_data`.
         """
-        if len(x_data) == 0:
-            return
-
         if not isinstance(x_data, np.ndarray):
             x_data = np.array(x_data)
 
@@ -216,60 +205,48 @@ class SignalDisplayWidget(QWidget):
             center_y = offset + (self._channel_spacing / 2)
 
             if i < len(y_data):
-                signal = y_data[i]
-                # signal_centered = signal - np.mean(signal)
-                # Centramos la señal en su respectiva posición del eje Y y aplicamos el factor
-                curve.setData(x_data, (signal * self.scale_factor) + center_y)
+                curve.setData(x_data, (y_data[i] * self.scale_factor) + center_y)
 
-        # Ventana de ancho fijo: seteo directo del rango
-        self.plot.setXRange(x_data[0], x_data[-1], padding=0) # type: ignore
-
-    def update_events(self, events, window_start: int, window_end: int):
+    def set_view_range(self, start: int, end: int):
         """
-        Actualiza los marcadores de los eventos visibles en la ventana actual.
-
-        Elimina primero los marcadores existentes y selecciona los eventos
-        cuyo inicio o cuyo final, calculado a partir de su duración, se
-        encuentra dentro de los límites de la ventana visible.
-
-        Para cada evento seleccionado crea una línea vertical en el gráfico
-        y utiliza su `trial_type` como etiqueta. La posición de la línea se
-        calcula de forma relativa al inicio de la ventana.
+        Actualiza el rango temporal visible del gráfico sin modificar los datos.
 
         Args:
-            events (list): Lista de eventos que se evaluarán.
-            window_start (int): Primera muestra de la ventana visible.
-            window_end (int): Límite superior de la ventana visible.
+            start (int): Primera muestra del rango temporal visible.
+            end (int): Última muestra del rango temporal visible.
+
+        Returns:
+            None
+        """
+        self.plot.setXRange(start, end, padding=0)  # type: ignore
+
+    def set_events(self, events):
+        """
+        Carga y representa todos los eventos en sus posiciones absolutas.
+
+        Las líneas de eventos se agregan al gráfico utilizando `onset_sample` como
+        posición sobre el eje X. Una vez cargadas, permanecen fijas mientras se
+        modifica el rango temporal visible mediante `set_view_range()`.
+
+        Args:
+            events (list): Lista de eventos que contienen `onset_sample` y
+                `trial_type` (ver `utils.bids_events.load_bids_events`).
 
         Returns:
             None
 
         Notes:
-            - Los marcadores existentes se eliminan antes de representar
-              los nuevos.
-            - Un evento se considera visible si su `onset_sample` pertenece
-              al intervalo `[window_start, window_end)` o si el final de su
-              duración pertenece al intervalo `[window_start, window_end]`.
-            - La posición X del marcador se calcula como
-              `onset_sample - window_start`.
-            - Cada evento visible genera una única línea vertical.
-            - La etiqueta de la línea utiliza el valor de `trial_type`.
+            Los eventos se representan en la misma escala absoluta de muestras
+            utilizada por `load_full_signal()`, por lo que no es necesario
+            recalcularlos al desplazar la ventana visible.
         """
         self._clear_event_lines()
 
-        visible = [
-            e for e in events
-            if window_start <= e.onset_sample < window_end
-            or window_start <= e.onset_sample + e.duration_sample <= window_end
-        ]
-
-        for ev in visible:
-            x = ev.onset_sample - window_start
+        for ev in events:
             line = pg.InfiniteLine(
-                pos=x, angle=90,
-                pen=pg.mkPen("#D62728", width=1.5, style=QtCore.Qt.DashLine),# type: ignore
-
-                label=ev.trial_type, 
+                pos=ev.onset_sample, angle=90,
+                pen=pg.mkPen("#D62728", width=1.5, style=QtCore.Qt.DashLine),  # type: ignore
+                label=ev.trial_type,
                 labelOpts={"position": 0.95, "color": "#D62728"},
             )
             self.plot.addItem(line)
