@@ -2,32 +2,58 @@
 
 Visor y reproductor interactivo de señales biomédicas multicanal desarrollado en Python.
 
-La aplicación permite cargar una señal almacenada en formato `.npy` junto con un archivo de eventos `.tsv`, visualizar simultáneamente todos los canales de la señal y sus respectivos marcadores, y recorrer la señal mediante controles de reproducción.
+La aplicación permite cargar una señal almacenada en formato `.npy` junto con un archivo de eventos `.tsv`, visualizar los canales seleccionados de la señal y sus respectivos marcadores, preparar opcionalmente la señal para su visualización y recorrerla mediante controles de reproducción.
 
 ---
-
 
 ## Objetivo
 
 El objetivo principal del proyecto es proporcionar una herramienta sencilla para **visualizar y reproducir señales biomédicas multicanal junto con sus eventos temporales**.
 
-La aplicación busca facilitar la inspección de señales previamente adquiridas, permitiendo recorrerlas temporalmente y relacionar visualmente los cambios observados en los canales con los eventos registrados durante la adquisición.
+La aplicación busca facilitar la inspección de señales previamente adquiridas, permitiendo seleccionar los canales de interés, aplicar un procesamiento mínimo orientado a la visualización, recorrer temporalmente la señal y relacionar visualmente los cambios observados en los canales con los eventos registrados durante la adquisición.
 
 ---
 
 ## Características
 
 * Carga de señales desde archivos `.npy`.
+
 * Soporte para señales multicanal.
-* Visualización simultánea de todos los canales.
+
+* Selección de los canales que serán visualizados.
+
+* Visualización simultánea de los canales seleccionados.
+
 * Visualización de nombres de canales.
+
+* Preparación opcional de la señal para visualización.
+
+* Eliminación de tendencia lineal y offset DC antes del filtrado.
+
+* Aplicación opcional de filtro pasa-altos.
+
+* Aplicación opcional de filtro pasa-bajos.
+
+* Aplicación opcional de filtros notch para reducir ruido de línea eléctrica.
+
+* Normalización independiente por canal mediante z-score.
+
 * Carga de eventos desde archivos `.tsv` en formato BIDS.
+
 * Representación de eventos como marcadores sobre la señal.
+
+* Representación del eje temporal en segundos.
+
 * Reproducción continua de la señal.
+
 * Pausa y reanudación de la reproducción.
+
 * Avance y retroceso por ventanas.
+
 * Reproducción en bucle.
+
 * Indicador de posición actual dentro de la señal.
+
 * Interfaz gráfica basada en Qt y PyQtGraph.
 
 ---
@@ -48,10 +74,15 @@ Por ejemplo, una señal con 8 canales y 100.000 muestras tendrá:
 
 ```python
 signal.shape
+
 # (8, 100000)
 ```
 
 Cada fila representa un canal y cada columna una muestra temporal.
+
+Antes de la visualización, la aplicación puede realizar una preparación de la señal. Este procesamiento incluye la extensión temporal mediante muestras reflejadas, eliminación de tendencia lineal y offset DC, y la aplicación opcional de filtros pasa-altos, pasa-bajos y notch.
+
+Posteriormente, los canales seleccionados se normalizan de forma independiente mediante z-score para facilitar su representación conjunta.
 
 ### Eventos
 
@@ -67,19 +98,25 @@ También puede incluir:
 
 ```text
 duration
+
 trial_type
 ```
 
 Un ejemplo:
 
 ```text
-onset	duration	trial_type
-2.50	0.50	stimulus
-5.00	1.00	response
-8.25	0.25	stimulus
+onset   duration    trial_type
+
+2.50    0.50        stimulus
+
+5.00    1.00        response
+
+8.25    0.25        stimulus
 ```
 
-Los valores de `onset` y `duration` se expresan en segundos y son convertidos a muestras utilizando la frecuencia de muestreo de la señal.
+Los valores de `onset` y `duration` se expresan en segundos. Durante la carga, estos valores se convierten a muestras utilizando la frecuencia de muestreo de la señal.
+
+Para la visualización, la posición de los eventos se convierte nuevamente a segundos, de modo que los marcadores y la señal utilizan la misma escala temporal.
 
 ---
 
@@ -89,11 +126,13 @@ La aplicación está compuesta por tres elementos principales:
 
 ### Visualización de la señal
 
-`SignalDisplayWidget` se encarga de representar los canales de la señal y los eventos correspondientes a la ventana temporal actualmente visible.
+`SignalDisplayWidget` se encarga de representar los canales de la señal y los eventos correspondientes.
+
+La señal completa se carga una única vez en las curvas de PyQtGraph. Durante la reproducción, la visualización se desplaza modificando únicamente el rango temporal visible, sin volver a extraer ni cargar ventanas de datos.
 
 Cada canal se representa de manera independiente y se desplaza verticalmente para facilitar la visualización simultánea de múltiples señales.
 
-Los eventos que se encuentran dentro de la ventana visible se muestran mediante marcadores verticales.
+El eje temporal se representa en segundos y los eventos se muestran mediante marcadores verticales en sus posiciones temporales correspondientes.
 
 ### Motor de reproducción
 
@@ -102,9 +141,13 @@ Los eventos que se encuentran dentro de la ventana visible se muestran mediante 
 Es responsable de:
 
 * avanzar la reproducción;
+
 * retroceder;
+
 * pausar y reanudar;
+
 * desplazarse entre ventanas;
+
 * reiniciar la reproducción al alcanzar el final de la señal.
 
 El motor es independiente de la interfaz gráfica y comunica los cambios de posición mediante señales de Qt.
@@ -121,7 +164,9 @@ La aplicación mantiene separadas las responsabilidades principales:
 
 ```text
                          MainWindow
+
                              │
+
              ┌───────────────┼───────────────┐
              │               │               │
              ▼               ▼               ▼
@@ -129,16 +174,19 @@ La aplicación mantiene separadas las responsabilidades principales:
              │               │
              │               │
              ▼               ▼
-       Posición de       Visualización
-       reproducción       de la señal
+        Posición de      Visualización
+        reproducción      de la señal
+             │               │
              │               │
              └───────┬───────┘
                      │
                      ▼
-                 Eventos BIDS
+                Eventos BIDS
 ```
 
-`MainWindow` funciona como componente de integración. Se encarga de conectar el motor de reproducción con la visualización y los controles, evitando que estos componentes tengan que conocerse directamente entre sí.
+`MainWindow` funciona como componente de integración. Se encarga de conectar el motor de reproducción con la visualización y los controles, además de preparar los canales seleccionados, configurar la señal completa y cargar los eventos en el widget de visualización.
+
+Durante la reproducción, `MainWindow` actualiza el rango temporal visible y la posición mostrada en los controles, mientras que `SignalDisplayWidget` mantiene los datos de la señal y los eventos cargados.
 
 ---
 
@@ -184,6 +232,8 @@ python main.py señal.npy \
 | `--window` | Tamaño de la ventana visible en muestras |      `1500` |
 | `--scale`  | Escala vertical entre canales            |        `50` |
 
+La interfaz de línea de comandos no requiere un archivo independiente para una señal filtrada. La preparación de la señal para visualización se realiza internamente cuando corresponde.
+
 ---
 
 ## Uso desde Python
@@ -224,6 +274,22 @@ launch_viewer(
 )
 ```
 
+También es posible indicar qué canales serán visualizados mediante `channels_idx`:
+
+```python
+channels_idx = [0, 2, 4]
+
+launch_viewer(
+    signal=signal,
+    channel_names=channel_names,
+    channels_idx=channels_idx,
+    events_path="events.tsv",
+    sfreq=250.0,
+)
+```
+
+La preparación de la señal para visualización puede configurarse mediante los parámetros `highpass`, `lowpass` y `notch`.
+
 ---
 
 ## Estructura del proyecto
@@ -232,6 +298,7 @@ Una organización general del proyecto es:
 
 ```text
 signalprocessing/
+
 │
 ├── gui/
 │   ├── main_window.py
@@ -242,6 +309,7 @@ signalprocessing/
 │
 ├── utils/
 │   ├── bids_events.py
+│   ├── filters.py
 │   └── playback_engine.py
 │
 ├── data/
@@ -262,25 +330,30 @@ Los archivos de datos (señal y eventos) pueden almacenarse en una carpeta `data
 
 ## Flujo de reproducción
 
-La señal completa permanece cargada en memoria y la interfaz muestra una ventana temporal de tamaño configurable.
+La señal completa se carga en memoria una única vez y la interfaz muestra una ventana temporal de tamaño configurable.
 
 Durante la reproducción:
 
 ```text
 Señal completa
+
 ───────────────────────────────────────────────────────
+
                   ┌──────────────┐
                   │    Ventana   │
-                  │   visible    │
+                  │    visible   │
                   └──────────────┘
                          │
                          ▼
+
 ───────────────────────────────────────────────────────
                          →
-                      tiempo
+                       tiempo
 ```
 
-El `PlaybackEngine` modifica progresivamente la posición de la ventana. Cada cambio de posición genera una actualización de la visualización.
+El `PlaybackEngine` modifica progresivamente la posición de la ventana.
+
+Cada cambio de posición actualiza únicamente el rango temporal visible del gráfico. La señal y los eventos permanecen cargados en `SignalDisplayWidget`, evitando volver a extraer y transferir los datos correspondientes a cada ventana.
 
 Cuando se alcanza el final de la señal, la reproducción vuelve al inicio de la ventana y continúa en bucle.
 
@@ -291,9 +364,15 @@ Cuando se alcanza el final de la señal, la reproducción vuelve al inicio de la
 El proyecto utiliza:
 
 * **Python 3.12**
+
 * **NumPy** para la representación y manipulación de las señales.
+
+* **SciPy** para el procesamiento mínimo de las señales mediante filtros y detrending.
+
 * **PyQt5** para la interfaz gráfica y el sistema de eventos.
+
 * **PyQtGraph** para la visualización interactiva de las señales.
+
 * **Pandas** para la lectura de los archivos de eventos `.tsv`.
 
 ---
@@ -320,6 +399,7 @@ Suponiendo la siguiente estructura:
 
 ```text
 signalprocessing/
+
 ├── data/
 │   ├── signal.npy
 │   └── events.tsv
@@ -334,7 +414,7 @@ python main.py data/signal.npy \
     --sfreq 250
 ```
 
-La aplicación cargará la señal, mostrará sus canales, superpondrá los eventos correspondientes y permitirá reproducirla mediante los controles de la interfaz.
+La aplicación cargará la señal, preparará los canales para su visualización según la configuración establecida, mostrará los canales seleccionados, superpondrá los eventos correspondientes y permitirá reproducir la señal mediante los controles de la interfaz.
 
 ---
 
