@@ -17,8 +17,8 @@ class MainWindow(QWidget):
 
     Integra el motor de reproducción, el widget de visualización y los
     controles de reproducción. Recibe una señal multicanal en memoria,
-    permite seleccionar los canales que serán visualizados y actualiza
-    periódicamente una ventana de muestras para su representación.
+    permite seleccionar los canales que serán visualizados y configura
+    la señal completa y sus eventos en el widget de visualización.
 
     Antes de la reproducción, la señal seleccionada puede someterse a un
     filtrado mínimo para visualización y posteriormente se normaliza de forma
@@ -26,7 +26,8 @@ class MainWindow(QWidget):
 
     La reproducción se controla mediante un `QTimer`, que ejecuta
     periódicamente `PlaybackEngine.tick()`. Los cambios de posición del motor
-    actualizan la ventana visible y la posición mostrada en los controles.
+    actualizan el rango temporal visible y la posición mostrada en los
+    controles.
 
     Args:
         signal (np.ndarray): Señal multicanal con forma
@@ -72,8 +73,9 @@ class MainWindow(QWidget):
         utilizados para la visualización, resuelve sus nombres, aplica
         opcionalmente el filtrado de visualización y normaliza la señal por canal.
         Luego carga opcionalmente los eventos BIDS, crea el motor de reproducción,
-        configura el widget de visualización y los controles, y establece el
-        temporizador encargado de actualizar la reproducción.
+        configura el widget de visualización con la señal completa y los eventos,
+        y establece el temporizador encargado de actualizar el rango visible
+        durante la reproducción.
 
         Args:
             signal (np.ndarray): Señal multicanal con forma
@@ -181,6 +183,10 @@ class MainWindow(QWidget):
 
         self._connect_signals()
 
+        self.display.load_full_signal(np.arange(self.n_samples), self.signal)
+        self.display.set_events(self.events)
+
+
         self._timer = QTimer()
         self._timer.timeout.connect(self.engine.tick)
         self._timer.start(refresh_ms)
@@ -219,12 +225,12 @@ class MainWindow(QWidget):
 
     def _refresh_view(self, pos: int):
         """
-        Actualiza la ventana visible de la señal para una posición determinada.
+        Actualiza el rango temporal visible de la señal para una posición
+        determinada.
 
         Calcula los límites de la ventana a partir de la posición actual del
-        reproductor, extrae las muestras correspondientes de los canales
-        seleccionados, actualiza la visualización de la señal y de los eventos,
-        y modifica la etiqueta de posición de los controles.
+        reproductor, actualiza el rango visible del widget de visualización y
+        modifica la etiqueta de posición de los controles.
 
         Args:
             pos (int): Posición final de la ventana en muestras.
@@ -235,14 +241,7 @@ class MainWindow(QWidget):
         start = pos - self.engine.window_size
         end = pos
 
-        x_data = np.arange(start, end)
-        
-        # Ahora solo extraemos una ventana de datos
-        y_window = self.signal[:, start:end]
-
-        # Actualizamos pasando únicamente (x, y)
-        self.display.update_data(x_data, y_window)
-        self.display.update_events(self.events, start, end)
+        self.display.set_view_range(start, end)
         self.controls.set_position_label(pos, self.n_samples)
 
     def closeEvent(self, event): # type: ignore
