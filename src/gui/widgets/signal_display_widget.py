@@ -9,7 +9,7 @@ class SignalDisplayWidget(QWidget):
     Widget para visualizar una o varias señales en un gráfico común.
 
     Contiene una curva por canal y utiliza los nombres proporcionados para
-    identificar cada canal en el eje Y. Las señales se representan centradas
+    identificar cada canal en el eje Y. Las señales se representan
     verticalmente en posiciones independientes para facilitar su visualización
     simultánea.
 
@@ -17,8 +17,8 @@ class SignalDisplayWidget(QWidget):
     Los eventos visibles se recalculan para cada ventana de muestras.
 
     Args:
-        channel_names (list, optional): Lista con los nombres de los canales.
-            Si no se proporciona, se utiliza `["Ch 1"]`.
+        channel_names (list): Lista con los nombres de los canales. Es
+            obligatoria y no puede ser `None` ni estar vacía.
         window_size (int): Tamaño de la ventana temporal en muestras.
         scale_factor (float): Factor aplicado a las señales antes de
             representarlas.
@@ -37,17 +37,17 @@ class SignalDisplayWidget(QWidget):
         """
         Inicializa el widget y configura el gráfico de señales.
 
-        Si no se proporcionan nombres de canales, se utiliza un único canal
-        denominado `"Ch 1"`. A partir de los nombres recibidos se determina
-        el número de canales y se crean las curvas correspondientes.
+        Requiere una lista no vacía de nombres de canales. A partir de los
+        nombres recibidos se determina el número de canales y se crean las
+        curvas correspondientes.
 
         También configura el gráfico, establece las etiquetas de los canales
         en el eje Y y prepara la lista utilizada para almacenar los marcadores
         de eventos.
 
         Args:
-            channel_names (list, optional): Nombres de los canales que serán
-                representados. Si es `None`, se utiliza `["Ch 1"]`.
+            channel_names (list): Nombres de los canales que serán representados.
+                Debe ser una lista no vacía.
             window_size (int): Tamaño de la ventana temporal en muestras.
             scale_factor (float): Factor de escala utilizado al representar
                 las señales.
@@ -55,18 +55,20 @@ class SignalDisplayWidget(QWidget):
         Returns:
             None
 
+        Raises:
+            ValueError: Si `channel_names` es `None` o está vacío.
+
         Notes:
             - El número de canales se obtiene mediante `len(channel_names)`.
             - Cada canal recibe una separación vertical fija de 200 unidades.
             - El gráfico utiliza un `QVBoxLayout`, ya que se muestra un único
-              gráfico.
+            gráfico.
             - Las líneas de eventos se almacenan en `_event_lines`.
         """
         super().__init__()
 
-        # Si no se pasan nombres, se asigna uno por defecto
-        if channel_names is None:
-            channel_names = ["Ch 1"]
+        if not channel_names:
+            raise ValueError("El widget requiere una lista válida en 'channel_names'.")
             
         self.channel_names = channel_names
         self.n_channels = len(channel_names)
@@ -74,9 +76,8 @@ class SignalDisplayWidget(QWidget):
         self.scale_factor = scale_factor
         self._channel_spacing = 200
 
-        # Cambiamos a QVBoxLayout ya que ahora es un solo gráfico
-        self.layout = QVBoxLayout()
-        self.setLayout(self.layout)
+        self.layout = QVBoxLayout() # type: ignore
+        self.setLayout(self.layout) # type: ignore
 
         label_style = {'color': '#000000', 'font-size': '14pt',
                        "font-family": "Times New Roman", "font-style": "italic"}
@@ -86,7 +87,7 @@ class SignalDisplayWidget(QWidget):
         self.plot.setTitle("Visualización de Señal", color="#000000", size="15pt", italic=True, bold=True)
         self.config_plot(self.plot, label_style)
 
-        self.layout.addWidget(self.plot)
+        self.layout.addWidget(self.plot) # type: ignore
 
         self.init_curves()
         self.channel_ticks(self._channel_spacing)
@@ -122,7 +123,7 @@ class SignalDisplayWidget(QWidget):
         plot_widget.setLabel("left", "Canales", **styles)
         plot_widget.setLabel("bottom", "Muestras", **styles)
         plot_widget.enableAutoRange(axis='y')
-        plot_widget.setDownsampling(mode='peak')
+        plot_widget.setDownsampling(mode='peak', auto=True)
         plot_widget.setClipToView(True)
 
     def init_curves(self):
@@ -177,9 +178,9 @@ class SignalDisplayWidget(QWidget):
         Actualiza las curvas con una nueva ventana de datos.
 
         Recibe el vector de muestras de la ventana visible y una señal
-        organizada por canales. Para cada canal disponible, centra la señal
-        restando su media, la multiplica por `scale_factor` y la desplaza
-        verticalmente según su posición en el gráfico.
+        organizada por canales. Para cada canal disponible, multiplica la
+        señal por `scale_factor` y la desplaza verticalmente según su posición
+        en el gráfico.
 
         Finalmente, establece directamente el rango del eje X utilizando
         el primer y último valor de `x_data`.
@@ -195,15 +196,14 @@ class SignalDisplayWidget(QWidget):
 
         Notes:
             - Si `x_data` está vacío, el método finaliza sin actualizar
-              el gráfico.
+            el gráfico.
             - `x_data` se convierte a `numpy.ndarray` si no lo es.
-            - Cada canal se centra de forma independiente restando su media.
-            - La señal centrada se multiplica por `scale_factor`.
+            - Cada canal se multiplica por `scale_factor`.
             - Cada canal se desplaza verticalmente utilizando una separación
-              fija de 200 unidades.
+            fija de 200 unidades.
             - Solo se actualizan las curvas cuyo índice existe en `y_data`.
             - El rango X se establece sin padding utilizando los extremos
-              de `x_data`.
+            de `x_data`.
         """
         if len(x_data) == 0:
             return
@@ -217,12 +217,12 @@ class SignalDisplayWidget(QWidget):
 
             if i < len(y_data):
                 signal = y_data[i]
-                signal_centered = signal - np.mean(signal)
+                # signal_centered = signal - np.mean(signal)
                 # Centramos la señal en su respectiva posición del eje Y y aplicamos el factor
-                curve.setData(x_data, (signal_centered * self.scale_factor) + center_y)
+                curve.setData(x_data, (signal * self.scale_factor) + center_y)
 
         # Ventana de ancho fijo: seteo directo del rango
-        self.plot.setXRange(x_data[0], x_data[-1], padding=0)
+        self.plot.setXRange(x_data[0], x_data[-1], padding=0) # type: ignore
 
     def update_events(self, events, window_start: int, window_end: int):
         """
@@ -267,8 +267,9 @@ class SignalDisplayWidget(QWidget):
             x = ev.onset_sample - window_start
             line = pg.InfiniteLine(
                 pos=x, angle=90,
-                pen=pg.mkPen("#D62728", width=1.5, style=QtCore.Qt.DashLine),
-                label=ev.trial_type,
+                pen=pg.mkPen("#D62728", width=1.5, style=QtCore.Qt.DashLine),# type: ignore
+
+                label=ev.trial_type, 
                 labelOpts={"position": 0.95, "color": "#D62728"},
             )
             self.plot.addItem(line)
