@@ -21,13 +21,20 @@ class MainWindow(QWidget):
     la señal completa y sus eventos en el widget de visualización.
 
     Antes de la reproducción, la señal seleccionada puede someterse a un
-    filtrado mínimo para visualización y posteriormente se normaliza de forma
-    independiente por canal mediante z-score.
+    filtrado mínimo para visualización mediante filtros pasa-altos, pasa-bajos
+    y notch. La señal resultante se centra por canal y se normaliza mediante
+    z-score utilizando la desviación estándar calculada sobre la señal
+    excluyendo el 1 % de cada extremo para reducir la influencia de artefactos
+    de borde.
+
+    La señal completa se carga una única vez en el widget de visualización,
+    utilizando un eje temporal expresado en segundos. Durante la reproducción,
+    únicamente se actualiza el rango temporal visible.
 
     La reproducción se controla mediante un `QTimer`, que ejecuta
-    periódicamente `PlaybackEngine.tick()`. Los cambios de posición del motor
-    actualizan el rango temporal visible y la posición mostrada en los
-    controles.
+    periódicamente `PlaybackEngine.tick()`. La velocidad de avance se
+    determina mediante `playback_rate` y el intervalo de actualización
+    mediante `refresh_ms`.
 
     Args:
         signal (np.ndarray): Señal multicanal con forma
@@ -49,13 +56,20 @@ class MainWindow(QWidget):
         highpass (float or None): Frecuencia de corte del filtro pasa-altos
             utilizado para la preparación de la señal para visualización.
             Si es `None`, no se aplica este filtro.
-        notch (float or None): Frecuencia del filtro notch utilizado para
-            reducir el ruido de línea eléctrica. Si es `None`, no se aplica
-            este filtro.
+        notch (float or None): Frecuencia base utilizada para generar las
+            frecuencias del filtro notch. Se generan múltiplos de esta
+            frecuencia inferiores a la frecuencia de Nyquist. Si es `None`,
+            no se generan frecuencias notch.
+        playback_rate (float): Factor utilizado para determinar la cantidad
+            de muestras que avanza la reproducción en cada actualización.
+        lowpass (float or None): Frecuencia de corte del filtro pasa-bajos
+            utilizado para la preparación de la señal. Si es `None`, no se
+            aplica este filtro.
 
     Raises:
-        ValueError: Si `signal` no es un array bidimensional o si
-            `channels_idx` está vacío.
+        ValueError: Si `signal` no es un array bidimensional, si
+            `channels_idx` está vacío o si la cantidad de `channel_names`
+            no coincide con el número de canales de la señal.
         IndexError: Si algún índice de `channels_idx` está fuera del rango
             de canales de la señal.
     """
@@ -65,17 +79,25 @@ class MainWindow(QWidget):
                  sfreq: float = 500.0,
                  window_size: int = 1500, scale_factor: float = 50,
                  refresh_ms: int = 20,
-                 highpass: float | None = 0.5, notch: float | None = 50.0):
+                 highpass: float | None = 0.5, notch: float | None = 50.0,
+                 playback_rate: float = 0.25, lowpass: float | None = 100):
         """
         Inicializa la ventana principal y sus componentes de reproducción.
 
         Valida la dimensión de la señal, determina los canales que serán
-        utilizados para la visualización, resuelve sus nombres, aplica
-        opcionalmente el filtrado de visualización y normaliza la señal por canal.
+        utilizados para la visualización y resuelve sus nombres. Posteriormente
+        aplica opcionalmente filtros pasa-altos, pasa-bajos y notch a la señal
+        seleccionada.
+
+        La señal filtrada se centra por canal y se normaliza mediante z-score.
+        Para calcular la desviación estándar se excluye el 1 % de cada extremo
+        de la señal, con el objetivo de reducir la influencia de artefactos de
+        borde.
+
         Luego carga opcionalmente los eventos BIDS, crea el motor de reproducción,
-        configura el widget de visualización con la señal completa y los eventos,
-        y establece el temporizador encargado de actualizar el rango visible
-        durante la reproducción.
+        configura el widget de visualización con la señal completa y sus eventos,
+        y establece el temporizador encargado de actualizar el rango temporal
+        visible durante la reproducción.
 
         Args:
             signal (np.ndarray): Señal multicanal con forma
@@ -99,8 +121,19 @@ class MainWindow(QWidget):
             highpass (float or None): Frecuencia de corte del filtro pasa-altos
                 aplicado durante la preparación para visualización. Si es `None`,
                 se omite.
-            notch (float or None): Frecuencia del filtro notch aplicado durante
-                la preparación para visualización. Si es `None`, se omite.
+            notch (float or None): Frecuencia base utilizada para generar las
+                frecuencias del filtro notch. Sus múltiplos inferiores a la
+                frecuencia de Nyquist se utilizan durante la preparación de la
+                señal. Si es `None` o no es positiva, no se generan frecuencias
+                notch.
+            playback_rate (float): Factor utilizado para calcular el número de
+                muestras que avanza el reproductor en cada actualización.
+            lowpass (float or None): Frecuencia de corte del filtro pasa-bajos
+                aplicado durante la preparación para visualización. Si es `None`,
+                se omite.
+
+        Returns:
+            None
 
         Raises:
             ValueError: Si `signal.ndim` es diferente de 2, si `channels_idx`
@@ -149,14 +182,26 @@ class MainWindow(QWidget):
         # Filtrado de visualización
         # remueve deriva de baja frecuencia y ruido de línea para que la
         # morfología sea visible, sin recortar bandas fisiológicas.
-        if highpass or notch:
-            self.signal = prepare_for_display(self.signal, sfreq, highpass=highpass, notch=notch)
+        if highpass or notch or lowpass:
+            notch_freqs = None
+            if notch and notch > 0:
+                nyq = sfreq / 2
+                notch_freqs = list(np.arange(notch, nyq, notch))
+
+            self.signal = prepare_for_display(
+                self.signal, sfreq, 
+                highpass=highpass, 
+                lowpass=lowpass, 
+                notch=notch_freqs  # type: ignore
+            )
 
         # Normalización por canal (z-score), sobre la señal ya filtrada
         means = np.mean(self.signal, axis=1, keepdims=True)
         self.signal = self.signal - means
 
-        stds = np.std(self.signal, axis=1, keepdims=True)
+        # Calcular std ignorando el 1% de cada extremo para evitar que artefactos de borde arruinen la escala
+        trim = max(1, int(self.n_samples * 0.01))
+        stds = np.std(self.signal[:, trim:-trim], axis=1, keepdims=True)
         stds[stds == 0] = 1.0  # Prevenir división por cero en canales muertos
         self.signal = self.signal / stds
 
@@ -165,7 +210,7 @@ class MainWindow(QWidget):
         self.setWindowTitle("NeuroIA GUI — Reproductor de señales")
         self.setGeometry(45, 80, 1600, 900)
 
-        step = max(1, round(sfreq * refresh_ms / 1000))
+        step = max(1, round(sfreq * refresh_ms / 1000 * playback_rate))
         self.engine = PlaybackEngine(self.n_samples, window_size, step=step)
 
         self.display = SignalDisplayWidget(
@@ -183,8 +228,9 @@ class MainWindow(QWidget):
 
         self._connect_signals()
 
-        self.display.load_full_signal(np.arange(self.n_samples), self.signal)
-        self.display.set_events(self.events)
+        time_axis = np.arange(self.n_samples) / self.sfreq
+        self.display.load_full_signal(time_axis, self.signal)
+        self.display.set_events(self.events, self.sfreq)
 
 
         self._timer = QTimer()
@@ -228,9 +274,10 @@ class MainWindow(QWidget):
         Actualiza el rango temporal visible de la señal para una posición
         determinada.
 
-        Calcula los límites de la ventana a partir de la posición actual del
-        reproductor, actualiza el rango visible del widget de visualización y
-        modifica la etiqueta de posición de los controles.
+        Convierte los límites de la ventana, expresados en muestras, a segundos
+        utilizando la frecuencia de muestreo de la señal y actualiza el rango
+        visible del widget de visualización. También actualiza la etiqueta de
+        posición de los controles.
 
         Args:
             pos (int): Posición final de la ventana en muestras.
@@ -238,10 +285,10 @@ class MainWindow(QWidget):
         Returns:
             None
         """
-        start = pos - self.engine.window_size
-        end = pos
+        start_sec = (pos - self.engine.window_size) / self.sfreq
+        end_sec = pos / self.sfreq
 
-        self.display.set_view_range(start, end)
+        self.display.set_view_range(start_sec, end_sec) # type: ignore
         self.controls.set_position_label(pos, self.n_samples)
 
     def closeEvent(self, event): # type: ignore
@@ -266,7 +313,8 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
                    channels_idx: None | list = None, events_path: None | str = None,
                    sfreq: float = 500.0,
                    window_size: int = 1500, scale_factor: float = 50,
-                   highpass: float | None = 0.5, notch: float | None = 50.0):
+                   highpass: float | None = 0.5, notch: float | None = 50.0,
+                   playback_rate: float = 0.25, lowpass: float | None = 100):
     """
     Crea y ejecuta el visor de señales.
 
@@ -278,6 +326,7 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
         signal (np.ndarray): Señal multicanal con forma
             `(n_canales, n_muestras)`.
         channel_names (list of str, optional): Nombres de todos los canales.
+            Si no se proporcionan, se generan automáticamente.
         channels_idx (list, optional): Índices de los canales que serán
             utilizados para la visualización. Si no se proporciona, se
             utilizan todos los canales.
@@ -289,8 +338,13 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
             las señales.
         highpass (float or None): Frecuencia de corte del filtro pasa-altos
             utilizado para la preparación de la señal. Si es `None`, se omite.
-        notch (float or None): Frecuencia del filtro notch utilizado para
-            reducir el ruido de línea eléctrica. Si es `None`, se omite.
+        notch (float or None): Frecuencia base utilizada para generar las
+            frecuencias del filtro notch. Si es `None`, no se generan
+            frecuencias notch.
+        playback_rate (float): Factor utilizado para determinar la cantidad
+            de muestras que avanza la reproducción en cada actualización.
+        lowpass (float or None): Frecuencia de corte del filtro pasa-bajos
+            utilizado para la preparación de la señal. Si es `None`, se omite.
 
     Returns:
         None
@@ -306,6 +360,8 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
         scale_factor=scale_factor,
         highpass=highpass,
         notch=notch,
+        playback_rate=playback_rate,
+        lowpass=lowpass
     )
     window.show()
     sys.exit(app.exec_())
