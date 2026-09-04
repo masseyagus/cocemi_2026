@@ -52,6 +52,8 @@ def parse_args():
                          help="Frecuencia de línea a remover, en Hz (50 o 60). 0 para desactivarlo.")
     parser.add_argument("--speed", type=float, default=0.25,
                      help="Velocidad de reproducción (1.0 = tiempo real, <1 = más lento).")
+    parser.add_argument("--refresh", type=int, default=20,
+                     help="Intervalo de actualización del temporizador, en milisegundos.")
     return parser.parse_args()
 
 
@@ -88,7 +90,8 @@ def main():
         highpass=args.highpass or None,
         notch=args.notch or None,
         playback_rate=args.speed,
-        lowpass=args.lowpass
+        lowpass=args.lowpass,
+        refresh_ms=args.refresh
     )
 
 if __name__ == "__main__":
