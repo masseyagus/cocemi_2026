@@ -311,43 +311,62 @@ class MainWindow(QWidget):
 
 def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
                    channels_idx: None | list = None, events_path: None | str = None,
-                   sfreq: float = 500.0,
+                   sfreq: float = 500.0, refresh_ms: int = 20,
                    window_size: int = 1500, scale_factor: float = 50,
                    highpass: float | None = 0.5, notch: float | None = 50.0,
                    playback_rate: float = 0.25, lowpass: float | None = 100):
     """
-    Crea y ejecuta el visor de señales.
+    Inicia la aplicación gráfica para visualizar y reproducir una señal.
 
-    Inicializa la aplicación Qt si todavía no existe, crea una instancia de
-    `MainWindow` con los parámetros proporcionados, muestra la ventana y
-    ejecuta el ciclo de eventos de la aplicación.
+    Configura la ventana principal con la señal proporcionada, permitiendo
+    seleccionar canales, cargar eventos BIDS y configurar los parámetros de
+    visualización, filtrado y reproducción. La señal puede ser preparada
+    mediante filtros pasa-altos, pasa-bajos y notch antes de su visualización,
+    seguida de una normalización por canal.
 
     Args:
-        signal (np.ndarray): Señal multicanal con forma
-            `(n_canales, n_muestras)`.
-        channel_names (list of str, optional): Nombres de todos los canales.
-            Si no se proporcionan, se generan automáticamente.
-        channels_idx (list, optional): Índices de los canales que serán
-            utilizados para la visualización. Si no se proporciona, se
-            utilizan todos los canales.
-        events_path (str, optional): Ruta a un archivo `events.tsv` en
-            formato BIDS.
-        sfreq (float): Frecuencia de muestreo en Hz.
-        window_size (int): Tamaño de la ventana visible en muestras.
-        scale_factor (float): Factor de escala utilizado para visualizar
-            las señales.
-        highpass (float or None): Frecuencia de corte del filtro pasa-altos
-            utilizado para la preparación de la señal. Si es `None`, se omite.
-        notch (float or None): Frecuencia base utilizada para generar las
-            frecuencias del filtro notch. Si es `None`, no se generan
-            frecuencias notch.
-        playback_rate (float): Factor utilizado para determinar la cantidad
-            de muestras que avanza la reproducción en cada actualización.
-        lowpass (float or None): Frecuencia de corte del filtro pasa-bajos
-            utilizado para la preparación de la señal. Si es `None`, se omite.
+        signal (np.ndarray):
+            Señal multicanal con forma `(n_canales, n_muestras)`.
+        channel_names (list[str] | None, optional):
+            Nombres de los canales disponibles. Si no se proporcionan, se
+            generan nombres automáticamente.
+        channels_idx (list[int] | None, optional):
+            Índices de los canales que se desean visualizar. Si no se
+            proporciona, se utilizan todos los canales.
+        events_path (str | None, optional):
+            Ruta al archivo TSV de eventos en formato BIDS. Si es `None`,
+            no se cargan eventos.
+        sfreq (float, optional):
+            Frecuencia de muestreo de la señal en Hz. Por defecto, `500.0`.
+        window_size (int, optional):
+            Cantidad de muestras correspondientes a la ventana visible.
+            Por defecto, `1500`.
+        scale_factor (float, optional):
+            Factor de escala vertical aplicado a las señales para su
+            visualización. Por defecto, `50`.
+        refresh_ms (int, optional):
+            Intervalo de actualización de la reproducción en milisegundos.
+            Por defecto, `20`.
+        highpass (float | None, optional):
+            Frecuencia de corte del filtro pasa-altos en Hz. Si es `None` o
+            no se especifica, no se aplica este filtro. Por defecto, `0.5`.
+        lowpass (float | None, optional):
+            Frecuencia de corte del filtro pasa-bajos en Hz. Si es `None` o
+            no se especifica, no se aplica este filtro. Por defecto, `100.0`.
+        notch (float | None, optional):
+            Frecuencia base del filtro notch en Hz. A partir de esta
+            frecuencia se generan sus múltiplos por debajo de la frecuencia
+            de Nyquist. Si es `None` o no es positiva, no se aplica el filtro.
+            Por defecto, `50.0`.
+        playback_rate (float, optional):
+            Factor utilizado para controlar la velocidad de avance de la
+            reproducción. Por defecto, `0.25`.
 
-    Returns:
-        None
+    Notes:
+        Los parámetros de filtrado se utilizan para preparar la señal antes
+        de su visualización. El intervalo `refresh_ms` y `playback_rate`
+        determinan conjuntamente el avance de la reproducción entre
+        actualizaciones.
     """
     app = QApplication.instance() or QApplication(sys.argv)
     window = MainWindow(
@@ -361,7 +380,8 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
         highpass=highpass,
         notch=notch,
         playback_rate=playback_rate,
-        lowpass=lowpass
+        lowpass=lowpass,
+        refresh_ms=refresh_ms
     )
     window.show()
     sys.exit(app.exec_())
