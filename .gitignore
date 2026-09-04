@@ -65,7 +65,12 @@ htmlcov/
 
 # Archivos personales
 **/tests/dataset
-**/data
+
+# Ignorar el contenido de data, pero permitir que Git explore la carpeta
+**/data/*
+
+# Excepción: No ignorar este archivo específico
+!**/data/obtain_data.ipynb
 
 # Workspaces de VS Code
 *.code-workspace
