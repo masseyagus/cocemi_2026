@@ -1,7 +1,7 @@
 import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtWidgets import QVBoxLayout, QWidget
-from pyqtgraph.Qt import QtCore
+from pyqtgraph.Qt import QtCore, QtGui
 
 
 class SignalDisplayWidget(QWidget):
@@ -235,9 +235,10 @@ class SignalDisplayWidget(QWidget):
 
         Convierte la posición de cada evento desde muestras a segundos mediante
         la frecuencia de muestreo proporcionada y agrega una línea vertical en
-        la posición temporal correspondiente. Una vez cargados, los eventos
-        permanecen fijos mientras se modifica el rango temporal visible mediante
-        `set_view_range()`.
+        la posición temporal correspondiente. Las etiquetas de los eventos se
+        muestran con un tamaño de fuente de 14 puntos. Una vez cargados, los
+        eventos permanecen fijos mientras se modifica el rango temporal visible
+        mediante `set_view_range()`.
 
         Args:
             events (list): Lista de eventos que contienen `onset_sample` y
@@ -252,10 +253,13 @@ class SignalDisplayWidget(QWidget):
             Los eventos se representan en la misma escala temporal en segundos
             utilizada por el eje X de `load_full_signal()`, por lo que no es
             necesario recalcularlos al desplazar la ventana visible.
+
+            Las etiquetas de los eventos utilizan una fuente de tamaño
+            fijo de 14 puntos.
         """
         self._clear_event_lines()
 
-        for ev in events:
+        for ev in events: # hacer más grandes las letras (markers)
 
             pos_sec = ev.onset_sample / sfreq
             
@@ -265,6 +269,11 @@ class SignalDisplayWidget(QWidget):
                 label=ev.trial_type,
                 labelOpts={"position": 0.95, "color": "#D62728"},
             )
+
+            font = QtGui.QFont()
+            font.setPointSize(14)
+            line.label.setFont(font)
+
             self.plot.addItem(line)
             self._event_lines.append(line)
 
