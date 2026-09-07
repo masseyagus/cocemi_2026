@@ -1,5 +1,5 @@
-from PyQt5.QtCore import pyqtSignal
-from PyQt5.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PyQt5.QtCore import pyqtSignal  # type: ignore
+from PyQt5.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget  # type: ignore
 
 
 class PlaybackControls(QWidget):
@@ -39,34 +39,57 @@ class PlaybackControls(QWidget):
         Inicializa los controles de reproducción y configura su disposición.
 
         Crea los botones de retroceso, reproducción/pausa y avance, junto
-        con la etiqueta de posición. Los elementos se organizan
-        horizontalmente y se conectan sus eventos `clicked` a las señales
-        correspondientes de la clase.
+        con las etiquetas de posición y de información central. Los elementos
+        se organizan horizontalmente y se conectan los eventos `clicked` de
+        los botones a las señales correspondientes de la clase.
+
+        La etiqueta de posición y la etiqueta central utilizan un estilo
+        tipográfico común, con fuente Times New Roman, tamaño de 22 px,
+        negrita, cursiva y color negro.
 
         Returns:
             None
 
         Notes:
             - El botón de reproducción/pausa comienza mostrando
-              `"⏸ Pausar"`.
+            `"⏸ Pausar"`.
             - La etiqueta de posición comienza mostrando `"Muestra: 0"`.
-            - Se añade un espacio flexible entre los controles y la
-              etiqueta de posición.
+            - La etiqueta central muestra `"Desarrollado por: Quintana, Agustín
+            y Baldezzari, Lucas"`.
+            - Se añaden espacios flexibles a ambos lados de la etiqueta central
+            para mantenerla centrada respecto a los controles.
         """
         super().__init__()
 
         layout = QHBoxLayout()
         self.setLayout(layout)
 
+        style = """
+                font-size: 22px;
+                font-family: 'Times New Roman';
+                font-weight: bold;
+                color: #000000;
+                font-style: 'italic'
+            """
+
         self.btn_prev = QPushButton("⏮ Retroceder")
         self.btn_play_pause = QPushButton("⏸ Pausar")
         self.btn_next = QPushButton("Avanzar ⏭")
+
         self.label_position = QLabel("Muestra: 0")
+        self.label_position.setStyleSheet(style)
+
+        self.label_central = QLabel("Desarrollado por: Quintana, Agustín y Baldezzari, Lucas")
+        self.label_central.setStyleSheet(style)
 
         layout.addWidget(self.btn_prev)
         layout.addWidget(self.btn_play_pause)
         layout.addWidget(self.btn_next)
+
         layout.addStretch(1)
+        layout.addWidget(self.label_central)
+        layout.addStretch(1) 
+
         layout.addWidget(self.label_position)
 
         self.btn_prev.clicked.connect(self.prev_clicked.emit)
