@@ -1,4 +1,8 @@
 # NeuroIA GUI
+<div style="text-align: justify">
+
+<img align="right" src="/src/assets/icons/neuro_ia_logo.png" alt="Neuro-IA Lab" width="150" style="margin-left: 25px">
+
 
 Visor y reproductor interactivo de señales biomédicas multicanal desarrollado en Python.
 
@@ -16,45 +20,15 @@ La aplicación busca facilitar la inspección de señales previamente adquiridas
 
 ## Características
 
-* Carga de señales desde archivos `.npy`.
-
-* Soporte para señales multicanal.
-
-* Selección de los canales que serán visualizados.
-
-* Visualización simultánea de los canales seleccionados.
-
-* Visualización de nombres de canales.
-
-* Preparación opcional de la señal para visualización.
-
-* Eliminación de tendencia lineal y offset DC antes del filtrado.
-
-* Aplicación opcional de filtro pasa-altos.
-
-* Aplicación opcional de filtro pasa-bajos.
-
-* Aplicación opcional de filtros notch para reducir ruido de línea eléctrica.
-
-* Normalización independiente por canal mediante z-score.
-
-* Carga de eventos desde archivos `.tsv` en formato BIDS.
-
-* Representación de eventos como marcadores sobre la señal.
-
-* Representación del eje temporal en segundos.
-
-* Reproducción continua de la señal.
-
-* Pausa y reanudación de la reproducción.
-
-* Avance y retroceso por ventanas.
-
-* Reproducción en bucle.
-
-* Indicador de posición actual dentro de la señal.
-
-* Interfaz gráfica basada en Qt y PyQtGraph.
+| Área | Funcionalidades |
+|---|---|
+| **Señal** | Carga de archivos `.npy`, soporte multicanal y selección de canales. |
+| **Visualización** | Representación simultánea de canales, nombres de canales y eje temporal en segundos. |
+| **Procesamiento** | Detrending, eliminación de offset DC y filtros pasa-altos, pasa-bajos y notch opcionales. |
+| **Normalización** | Normalización independiente de cada canal mediante z-score. |
+| **Eventos** | Carga de eventos BIDS desde `.tsv` y representación mediante marcadores temporales. |
+| **Reproducción** | Reproducción, pausa, avance, retroceso y reproducción en bucle. |
+| **Interfaz** | Controles de reproducción, indicador de posición e interfaz gráfica basada en Qt y PyQtGraph. |
 
 ---
 
@@ -212,25 +186,38 @@ Es posible especificar la frecuencia de muestreo:
 python main.py señal.npy --events eventos.tsv --sfreq 250
 ```
 
-También pueden configurarse el tamaño de la ventana y la escala vertical:
+También pueden configurarse los canales, el tamaño de la ventana, la escala
+vertical y los parámetros de reproducción y filtrado:
 
 ```bash
 python main.py señal.npy \
+    --channels 0 2 4 \
     --events eventos.tsv \
-    --sfreq 250 \
+    --sfreq 500 \
     --window 1500 \
-    --scale 50
+    --scale 50 \
+    --highpass 0.5 \
+    --lowpass 100 \
+    --notch 50 \
+    --speed 0.25 \
+    --refresh 20
 ```
 
 ### Argumentos disponibles
 
-| Argumento  | Descripción                              | Por defecto |
-| ---------- | ---------------------------------------- | ----------: |
-| `signal`   | Archivo `.npy` con la señal              | Obligatorio |
-| `--events` | Archivo `events.tsv` con los eventos     |      `None` |
-| `--sfreq`  | Frecuencia de muestreo en Hz             |       `250` |
-| `--window` | Tamaño de la ventana visible en muestras |      `1500` |
-| `--scale`  | Escala vertical entre canales            |        `50` |
+| Argumento | Descripción | Por defecto |
+|---|---|---:|
+| `signal` | Archivo `.npy` con forma `(n_canales, n_muestras)`. | Obligatorio |
+| `--channels` | Índices de los canales a visualizar, separados por espacios. | `None` |
+| `--events` | Archivo `events.tsv` con los eventos en formato BIDS. | `None` |
+| `--sfreq` | Frecuencia de muestreo de la señal, en Hz. | `500.0` |
+| `--window` | Tamaño de la ventana visible, en muestras. | `1500` |
+| `--scale` | Factor de escala vertical entre canales. | `50.0` |
+| `--highpass` | Frecuencia de corte del filtro pasa-altos, en Hz. `0` lo desactiva. | `0.5` |
+| `--lowpass` | Frecuencia de corte del filtro pasa-bajos, en Hz. `0` lo desactiva. | `100.0` |
+| `--notch` | Frecuencia base para eliminar ruido de línea y sus múltiplos inferiores a Nyquist. `0` lo desactiva. | `50.0` |
+| `--speed` | Velocidad de reproducción. `1.0` corresponde a tiempo real; valores menores reproducen más lentamente. | `0.25` |
+| `--refresh` | Intervalo de actualización del temporizador, en milisegundos. | `20` |
 
 La interfaz de línea de comandos no requiere un archivo independiente para una señal filtrada. La preparación de la señal para visualización se realiza internamente cuando corresponde.
 
@@ -270,7 +257,7 @@ launch_viewer(
     signal=signal,
     channel_names=channel_names,
     events_path="events.tsv",
-    sfreq=250.0,
+    sfreq=500.0,
 )
 ```
 
@@ -290,6 +277,8 @@ launch_viewer(
 
 La preparación de la señal para visualización puede configurarse mediante los parámetros `highpass`, `lowpass` y `notch`.
 
+La reproducción puede ajustarse mediante `refresh_ms`, que determina el intervalo de actualización del temporizador, y `playback_rate`, que controla el avance de la reproducción.
+
 ---
 
 ## Estructura del proyecto
@@ -297,25 +286,23 @@ La preparación de la señal para visualización puede configurarse mediante los
 Una organización general del proyecto es:
 
 ```text
-signalprocessing/
-
-│
-├── gui/
-│   ├── main_window.py
-│   │
-│   └── widgets/
-│       ├── playback_controls.py
-│       └── signal_display_widget.py
-│
-├── utils/
-│   ├── bids_events.py
-│   ├── filters.py
-│   └── playback_engine.py
-│
-├── data/
-│   ├── signal.npy
-│   └── events.tsv
-│
+cocemi_2026/
+├── src
+│   ├── assets
+│   │   └── icons
+│   │       └── neuro_ia_logo.png
+│   ├── gui
+│   │   ├── widgets
+│   │   │   ├── __init__.py
+│   │   │   ├── playback_controls.py
+│   │   │   └── signal_display_widget.py
+│   │   ├── __init__.py
+│   │   └── main_window.py
+│   └── utils
+│       ├── __init__.py
+│       ├── bids_events.py
+│       ├── filters.py
+│       └── playback_engine.py
 ├── .gitignore
 ├── LICENSE.md
 ├── README.md
@@ -398,7 +385,7 @@ conda env create -f environment.yml
 Suponiendo la siguiente estructura:
 
 ```text
-signalprocessing/
+cocemi_2026/
 
 ├── data/
 │   ├── signal.npy
@@ -420,4 +407,4 @@ La aplicación cargará la señal, preparará los canales para su visualización
 
 ## Licencia
 
-Este proyecto se distribuye bajo la licencia indicada en el archivo `LICENSE`.
+Este proyecto se distribuye bajo la licencia indicada en el archivo `LICENSE.md`.
