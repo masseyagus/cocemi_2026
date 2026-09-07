@@ -1,8 +1,10 @@
 import sys
+from pathlib import Path
 
-import numpy as np
-from PyQt5.QtCore import QTimer
-from PyQt5.QtWidgets import QApplication, QVBoxLayout, QWidget
+import numpy as np  #type: ignore
+from PyQt5 import QtGui  #type: ignore
+from PyQt5.QtCore import QTimer  #type: ignore
+from PyQt5.QtWidgets import QApplication, QVBoxLayout, QWidget  #type: ignore
 
 from gui.widgets.playback_controls import PlaybackControls
 from gui.widgets.signal_display_widget import SignalDisplayWidget
@@ -94,10 +96,11 @@ class MainWindow(QWidget):
         de la señal, con el objetivo de reducir la influencia de artefactos de
         borde.
 
-        Luego carga opcionalmente los eventos BIDS, crea el motor de reproducción,
-        configura el widget de visualización con la señal completa y sus eventos,
-        y establece el temporizador encargado de actualizar el rango temporal
-        visible durante la reproducción.
+        Luego carga opcionalmente los eventos BIDS, configura el título y el
+        ícono de la ventana, crea el motor de reproducción, configura el widget
+        de visualización con la señal completa y sus eventos, y establece el
+        temporizador encargado de actualizar el rango temporal visible durante
+        la reproducción.
 
         Args:
             signal (np.ndarray): Señal multicanal con forma
@@ -119,8 +122,8 @@ class MainWindow(QWidget):
             refresh_ms (int): Intervalo de actualización del temporizador, en
                 milisegundos.
             highpass (float or None): Frecuencia de corte del filtro pasa-altos
-                aplicado durante la preparación para visualización. Si es `None`,
-                se omite.
+                aplicado durante la preparación para visualización. Si es
+                `None`, se omite.
             notch (float or None): Frecuencia base utilizada para generar las
                 frecuencias del filtro notch. Sus múltiplos inferiores a la
                 frecuencia de Nyquist se utilizan durante la preparación de la
@@ -129,8 +132,8 @@ class MainWindow(QWidget):
             playback_rate (float): Factor utilizado para calcular el número de
                 muestras que avanza el reproductor en cada actualización.
             lowpass (float or None): Frecuencia de corte del filtro pasa-bajos
-                aplicado durante la preparación para visualización. Si es `None`,
-                se omite.
+                aplicado durante la preparación para visualización. Si es
+                `None`, se omite.
 
         Returns:
             None
@@ -207,7 +210,13 @@ class MainWindow(QWidget):
 
         self.events = load_bids_events(events_path, sfreq) if events_path else []
 
-        self.setWindowTitle("NeuroIA GUI — Reproductor de señales")
+        self.setWindowTitle("Reproductor de señales - NeuroIA GUI")
+
+        icon_parent = Path(__file__).resolve().parent
+        path_icon = icon_parent.parent / "assets" / "icons" / "neuro_ia_logo.png"
+        icon = QtGui.QIcon(str(path_icon))
+        self.setWindowIcon(icon)
+
         self.setGeometry(45, 80, 1600, 900)
 
         step = max(1, round(sfreq * refresh_ms / 1000 * playback_rate))
