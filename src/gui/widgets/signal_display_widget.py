@@ -1,7 +1,7 @@
-import numpy as np
-import pyqtgraph as pg
-from PyQt5.QtWidgets import QVBoxLayout, QWidget
-from pyqtgraph.Qt import QtCore, QtGui
+import numpy as np  #type: ignore
+import pyqtgraph as pg  #type: ignore
+from PyQt5.QtWidgets import QVBoxLayout, QWidget  #type: ignore
+from pyqtgraph.Qt import QtCore, QtGui  #type: ignore
 
 
 class SignalDisplayWidget(QWidget):
