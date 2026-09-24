@@ -29,6 +29,12 @@ class MainWindow(QWidget):
     excluyendo el 1 % de cada extremo para reducir la influencia de artefactos
     de borde.
 
+    Los canales seleccionados se colorean según el tipo de señal al que
+    pertenecen. La asignación de tipos y colores se define mediante
+    `SIGNAL_TYPES`, que establece rangos de índices para EEG, EMG y EOG.
+    Los colores correspondientes se proporcionan al widget de visualización
+    junto con los elementos utilizados para construir la leyenda.
+
     La señal completa se carga una única vez en el widget de visualización,
     utilizando un eje temporal expresado en segundos. Durante la reproducción,
     únicamente se actualiza el rango temporal visible.
@@ -93,12 +99,19 @@ class MainWindow(QWidget):
 
         La señal filtrada se centra por canal y se normaliza mediante z-score.
         Para calcular la desviación estándar se excluye el 1 % de cada extremo
-        de la señal, con el objetivo de reducir la influencia de artefactos de
-        borde.
+        de la señal, con el objetivo de reducir la influencia de artefactos
+        de borde.
 
         Luego carga opcionalmente los eventos BIDS, configura el título y el
-        ícono de la ventana, crea el motor de reproducción, configura el widget
-        de visualización con la señal completa y sus eventos, y establece el
+        ícono de la ventana, crea el motor de reproducción y determina el color
+        de cada canal según su índice. La clasificación de los canales se realiza
+        mediante `SIGNAL_TYPES`, que define los rangos correspondientes a EEG,
+        EMG y EOG. Los colores resultantes se proporcionan al widget de
+        visualización junto con la información necesaria para construir la
+        leyenda por tipo de señal.
+
+        Finalmente, crea el widget de visualización con la señal completa y sus
+        eventos, configura los controles de reproducción y establece el
         temporizador encargado de actualizar el rango temporal visible durante
         la reproducción.
 
@@ -222,8 +235,25 @@ class MainWindow(QWidget):
         step = max(1, round(sfreq * refresh_ms / 1000 * playback_rate))
         self.engine = PlaybackEngine(self.n_samples, window_size, step=step)
 
+        SIGNAL_TYPES = [                            # noqa: N806
+            ("EEG", range(0, 64), "#004CFF"),
+            ("EMG", range(64, 65), "#FF6F00"),
+            ("EOG", range(65, 67), "#4BD212"),
+        ]
+
+        def _color_for_channel(idx: int) -> str:
+            for _, idx_range, color in SIGNAL_TYPES:
+                if idx in idx_range:
+                    return color
+            return SIGNAL_TYPES[-1][2]
+
+        self.channel_colors = [_color_for_channel(idx) for idx in self.channels_idx]
+        legend_items = [(label, color) for label, _, color in SIGNAL_TYPES]
+
         self.display = SignalDisplayWidget(
             channel_names=self.channel_names,
+            channel_colors=self.channel_colors,
+            legend_items=legend_items,   # nuevo
             window_size=self.engine.window_size,
             scale_factor=scale_factor,
         )
