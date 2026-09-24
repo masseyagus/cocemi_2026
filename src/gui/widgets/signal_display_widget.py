@@ -11,7 +11,8 @@ class SignalDisplayWidget(QWidget):
     Contiene una curva por canal y utiliza los nombres proporcionados para
     identificar cada canal en el eje Y. Las señales se representan
     verticalmente en posiciones independientes para facilitar su visualización
-    simultánea.
+    simultánea. Cada curva puede utilizar un color específico proporcionado
+    mediante `channel_colors`.
 
     La señal completa puede cargarse una única vez mediante
     `load_full_signal()`. El eje X utiliza tiempos expresados en segundos.
@@ -24,15 +25,28 @@ class SignalDisplayWidget(QWidget):
     utilizando la frecuencia de muestreo proporcionada. Una vez cargados,
     permanecen fijos mientras se modifica el rango visible.
 
+    Puede mostrar una leyenda con los tipos de señal y sus colores mediante
+    `legend_items`.
+
     Args:
         channel_names (list): Lista con los nombres de los canales. Es
             obligatoria y no puede ser `None` ni estar vacía.
         window_size (int): Tamaño de la ventana temporal en muestras.
         scale_factor (float): Factor aplicado a las señales antes de
             representarlas.
+        channel_colors (list | None): Lista de colores utilizados para las
+            curvas de los canales. Si es `None`, se utiliza el color
+            `"#004CFF"` para todos los canales.
+        legend_items (list | None): Elementos de la leyenda. Cada elemento
+            debe contener una etiqueta de tipo de señal y su color. Si es
+            `None`, no se muestra la leyenda.
 
     Attributes:
         channel_names (list): Nombres de los canales configurados.
+        channel_colors (list): Colores utilizados para representar los
+            canales.
+        legend_items (list): Elementos utilizados para construir la leyenda
+            por tipo de señal.
         n_channels (int): Número de canales configurados.
         window_size (int): Tamaño de la ventana de visualización en muestras.
         scale_factor (float): Factor de escala utilizado para visualizar
@@ -41,7 +55,8 @@ class SignalDisplayWidget(QWidget):
         plot (pyqtgraph.PlotWidget): Gráfico principal de la señal.
     """
 
-    def __init__(self, channel_names: list|None = None, window_size: int = 500, scale_factor: float = 50):
+    def __init__(self, channel_names: list|None = None, window_size: int = 500, 
+                 scale_factor: float = 50, channel_colors:list|None=None, legend_items:list|None=None):
         """
         Inicializa el widget y configura el gráfico de señales.
 
@@ -50,8 +65,9 @@ class SignalDisplayWidget(QWidget):
         curvas correspondientes.
 
         También configura el gráfico, establece las etiquetas de los canales
-        en el eje Y y prepara la lista utilizada para almacenar los marcadores
-        de eventos.
+        en el eje Y, asigna los colores de las curvas, crea la leyenda por tipo
+        de señal cuando se proporciona y prepara la lista utilizada para
+        almacenar los marcadores de eventos.
 
         Args:
             channel_names (list): Nombres de los canales que serán representados.
@@ -59,6 +75,13 @@ class SignalDisplayWidget(QWidget):
             window_size (int): Tamaño de la ventana temporal en muestras.
             scale_factor (float): Factor de escala utilizado al representar
                 las señales.
+            channel_colors (list | None): Colores utilizados para representar
+                las curvas de los canales. Si es `None`, se utiliza
+                `"#004CFF"` para todos los canales.
+            legend_items (list | None): Elementos utilizados para construir la
+                leyenda por tipo de señal. Cada elemento contiene una etiqueta
+                y el color correspondiente. Si es `None` o está vacío, no se
+                agrega una leyenda.
 
         Returns:
             None
@@ -73,6 +96,8 @@ class SignalDisplayWidget(QWidget):
             gráfico.
             - Las líneas de eventos se almacenan en `_event_lines`.
             - El eje temporal del gráfico se expresa en segundos.
+            - La leyenda se configura con una columna por elemento recibido en
+            `legend_items`.
         """
         super().__init__()
 
@@ -80,6 +105,9 @@ class SignalDisplayWidget(QWidget):
             raise ValueError("El widget requiere una lista válida en 'channel_names'.")
             
         self.channel_names = channel_names
+        self.channel_colors = channel_colors or ["#004CFF"] * self.n_channels
+        self.legend_items = legend_items or []
+
         self.n_channels = len(channel_names)
         self.window_size = window_size
         self.scale_factor = scale_factor
@@ -100,6 +128,7 @@ class SignalDisplayWidget(QWidget):
 
         self.init_curves()
         self.channel_ticks(self._channel_spacing)
+        self._add_signal_type_legend()
 
         # ----- Líneas de eventos -----
         self._event_lines = []
@@ -140,7 +169,8 @@ class SignalDisplayWidget(QWidget):
         Inicializa una curva para cada canal configurado.
 
         Crea una curva vacía en el gráfico por cada elemento de
-        `channel_names` y almacena las curvas en `curves`.
+        `channel_names`, utilizando el color correspondiente de
+        `channel_colors`, y almacena las curvas en `curves`.
 
         Returns:
             None
@@ -148,11 +178,13 @@ class SignalDisplayWidget(QWidget):
         Notes:
             - El número de curvas creadas coincide con `n_channels`.
             - Las curvas se crean inicialmente sin datos.
-            - Las curvas se representan utilizando un trazo azul.
+            - Cada curva utiliza el color indicado en la posición correspondiente
+            de `channel_colors`.
+            - Las curvas se representan con un ancho de trazo de 2.
         """
         self.curves = []
-        for _ in range(self.n_channels):
-            curve = self.plot.plot(pen="#004CFF")
+        for i in range(self.n_channels):
+            curve = self.plot.plot(pen=pg.mkPen(self.channel_colors[i], width=2))
             self.curves.append(curve)
 
     def channel_ticks(self, spacing):
@@ -290,3 +322,39 @@ class SignalDisplayWidget(QWidget):
         for line in self._event_lines:
             self.plot.removeItem(line)
         self._event_lines = []
+
+    def _add_signal_type_legend(self):
+        """
+        Agrega una leyenda al gráfico para identificar los tipos de señal.
+
+        Utiliza los elementos proporcionados mediante `legend_items` para crear
+        una entrada por tipo de señal, asociando cada etiqueta con una muestra
+        del color correspondiente.
+
+        Returns:
+            None
+
+        Notes:
+            - Si `legend_items` está vacío, no se agrega ninguna leyenda.
+            - La leyenda se posiciona en la esquina superior izquierda del
+            gráfico.
+            - Se utiliza una columna por cada elemento de `legend_items`.
+            - Las etiquetas de la leyenda se muestran en color negro.
+            - Las muestras de la leyenda utilizan un trazo de ancho 2 con el
+            color asociado a cada tipo de señal.
+        """
+        if not self.legend_items:
+            return
+
+        total_columns = len(self.legend_items)
+
+        legend = self.plot.addLegend(
+            offset=(10, 10), 
+            labelTextSize='15pt', 
+            colCount=total_columns
+        )
+
+        for label, color in self.legend_items:
+            sample = pg.PlotDataItem(pen=pg.mkPen(color, width=2))
+            label_negro = f'<span style="color: black;">{label}</span>'
+            legend.addItem(sample, label_negro)
