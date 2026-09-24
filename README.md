@@ -1,12 +1,12 @@
-# NeuroIA GUI
+# NeuroIA GUI: Visor y Reproductor de Señales Biomédicas Multicanal
 <div style="text-align: justify">
 
 <img align="right" src="/src/assets/icons/neuro_ia_logo.png" alt="Neuro-IA Lab" width="150" style="margin-left: 25px">
 
 
-Visor y reproductor interactivo de señales biomédicas multicanal desarrollado en Python.
+Visor y reproductor interactivo de señales biomédicas multicanal desarrollado en Python para la asistencia del NueroIA Lab a la [Ronda COCEMI 2026](https://rondacocemi.uy/).
 
-La aplicación permite cargar una señal almacenada en formato `.npy` junto con un archivo de eventos `.tsv`, visualizar los canales seleccionados de la señal y sus respectivos marcadores, preparar opcionalmente la señal para su visualización y recorrerla mediante controles de reproducción.
+La aplicación permite cargar una señal almacenada en formato `.npy` junto con un archivo de eventos `.tsv`, procesar y preparar la señal para su correcta visualización, representar los canales seleccionados junto a sus respectivos marcadores temporales y recorrerlos de forma interactiva mediante controles de reproducción.
 
 ---
 
@@ -21,7 +21,7 @@ La aplicación busca facilitar la inspección de señales previamente adquiridas
 ## Características
 
 | Área | Funcionalidades |
-|---|---|
+|:---:|:---:|
 | **Señal** | Carga de archivos `.npy`, soporte multicanal y selección de canales. |
 | **Visualización** | Representación simultánea de canales, nombres de canales y eje temporal en segundos. |
 | **Procesamiento** | Detrending, eliminación de offset DC y filtros pasa-altos, pasa-bajos y notch opcionales. |
@@ -206,7 +206,7 @@ python main.py señal.npy \
 ### Argumentos disponibles
 
 | Argumento | Descripción | Por defecto |
-|---|---|---:|
+|:---:|:---:|:---:|
 | `signal` | Archivo `.npy` con forma `(n_canales, n_muestras)`. | Obligatorio |
 | `--channels` | Índices de los canales a visualizar, separados por espacios. | `None` |
 | `--events` | Archivo `events.tsv` con los eventos en formato BIDS. | `None` |
@@ -287,6 +287,8 @@ Una organización general del proyecto es:
 
 ```text
 cocemi_2026/
+├── data
+│   └── obtain_data.ipynb
 ├── src
 │   ├── assets
 │   │   └── icons
@@ -366,17 +368,27 @@ El proyecto utiliza:
 
 ## Instalación
 
-Clonar el repositorio:
+1. **Clonar el repositorio:**
+   ```bash
+   git clone https://github.com/masseyagus/cocemi_2026.git
+   ```
 
-```bash
-git clone https://github.com/masseyagus/cocemi_2026.git
-```
+2. **Crear y activar el entorno de Conda:**
+   ```bash
+   conda env create -f environment.yml
+   ```
 
-Creación de entorno Conda:
+3. **Instalar la librería en modo editable:**  
+   Instala este mismo paquete (`cocemi`) en modo editable para que cualquier modificación en el código fuente de la interfaz se aplique de inmediato sin necesidad de reinstalar:
+   ```bash
+   pip install -e .
+   ```
 
-```bash
-conda env create -f environment.yml
-```
+4. **Soporte para archivos HDF5 o XDF (Opcional):**  
+   Si necesitas soporte para leer formatos HDF5 o XDF, puedes utilizar la Jupyter Notebook `obtain_data.ipynb`. Sin embargo, para su uso debes añadir al entorno la librería [pyhwr](https://github.com/lucasbaldezzari/pyhwr.git) de [Lucas Baldezzari](https://github.com/lucasbaldezzari). Para ello, clona su repositorio y, desde la raíz del paquete con tu entorno activo, ejecútalo en modo de compatibilidad:
+   ```bash
+   pip install -e . --config-settings editable_mode=compat
+   ```
 
 ---
 
@@ -407,4 +419,4 @@ La aplicación cargará la señal, preparará los canales para su visualización
 
 ## Licencia
 
-Este proyecto se distribuye bajo la licencia indicada en el archivo `LICENSE.md`.
+Este proyecto se distribuye bajo la licencia indicada en el archivo [LICENSE.md](./LICENSE.md).
