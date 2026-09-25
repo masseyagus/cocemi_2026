@@ -268,7 +268,7 @@ class SignalDisplayWidget(QWidget):
         Convierte la posición de cada evento desde muestras a segundos mediante
         la frecuencia de muestreo proporcionada y agrega una línea vertical en
         la posición temporal correspondiente. Las etiquetas de los eventos se
-        muestran con un tamaño de fuente de 14 puntos. Una vez cargados, los
+        muestran con un tamaño de fuente de 22 puntos. Una vez cargados, los
         eventos permanecen fijos mientras se modifica el rango temporal visible
         mediante `set_view_range()`.
 
@@ -297,13 +297,13 @@ class SignalDisplayWidget(QWidget):
             
             line = pg.InfiniteLine(
                 pos=pos_sec, angle=90,
-                pen=pg.mkPen("#D62728", width=1.5, style=QtCore.Qt.DashLine),  # type: ignore
+                pen=pg.mkPen("#FF0000", width=1.5, style=QtCore.Qt.DashLine),  # type: ignore
                 label=ev.trial_type,
-                labelOpts={"position": 0.95, "color": "#D62728"},
+                labelOpts={"position": 0.95, "color": "#FF0000"},
             )
 
             font = QtGui.QFont()
-            font.setPointSize(14)
+            font.setPointSize(22)
             line.label.setFont(font)
 
             self.plot.addItem(line)
