@@ -121,30 +121,26 @@ PlaybackEngine controla el avance temporal de forma independiente a la interfaz 
 La aplicación mantiene separadas las responsabilidades principales:
 
 ```text
-                         MainWindow
-
-                             │
-
-             ┌───────────────┼───────────────┐
-             │               │               │
-             ▼               ▼               ▼
-      PlaybackEngine   SignalDisplayWidget  PlaybackControls
-             │               │
-             │               │
-             ▼               ▼
-        Posición de      Visualización
-        reproducción      de la señal
-             │               │
-             │               │
-             └───────┬───────┘
-                     │
-                     ▼
-                Eventos BIDS
+                                  MainWindow
+                                       │
+        ┌───────────────────┬──────────┴──────────┬───────────────────┐
+        │                   │                     │                   │
+        ▼                   ▼                     ▼                   ▼
+ PlaybackEngine    SignalDisplayWidget      TopomapWidget      PlaybackControls
+        │                   │                     │
+        ▼                   ▼                     ▼
+   Posición de        Visualización de     Mapa topográfico
+  reproducción            la señal             de energía
+        │                   │
+        └─────────┬─────────┘
+                  │
+                  ▼
+             Eventos BIDS
 ```
 
-`MainWindow` funciona como componente de integración. Se encarga de conectar el motor de reproducción con la visualización y los controles, además de preparar los canales seleccionados, configurar la señal completa y cargar los eventos en el widget de visualización.
+`MainWindow` funciona como componente de integración principal. Se encarga de conectar el motor de reproducción con la visualización de la señal, el mapa topográfico de energía y los controles, además de preparar los canales seleccionados, configurar la señal completa y cargar los eventos en los widgets correspondientes.
 
-Durante la reproducción, `MainWindow` actualiza el rango temporal visible y la posición mostrada en los controles, mientras que `SignalDisplayWidget` mantiene los datos de la señal y los eventos cargados.
+Durante la reproducción, `MainWindow` coordina las actualizaciones notificadas por `PlaybackEngine`: actualiza el rango temporal visible en `SignalDisplayWidget`, recalcula la distribución de energía mostrada en `TopomapWidget` y refresca el indicador de posición en `PlaybackControls`.
 
 ---
 
@@ -169,6 +165,10 @@ Al ejecutarse, se abrirá la ventana de configuración donde podrás:
 **4. Mapa topográfico:** Activar la casilla de mapa topográfico e indicar el número de canales EEG iniciales si la señal contiene otros tipos de sensores (EMG/EOG).
 
 Al presionar el botón **Lanzar Visor**, la ventana de configuración se cerrará e iniciará la reproducción interactiva.
+
+<p align="center">
+  <img src="/src/assets/icons/launch_gui.png" alt="Launcher" width="350">
+</p>
 
 ---
 
