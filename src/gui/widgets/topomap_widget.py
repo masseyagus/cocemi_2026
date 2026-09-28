@@ -150,7 +150,7 @@ class TopomapWidget(QWidget):
 
     def __init__(self, rows: list, positions: np.ndarray, names: list | None = None,
                  cmap: str = "RdBu_r", vlim: tuple = (None, None), contours: int = 6,
-                 res: int = 64, max_fps: float = 8.0, size: int = 300,
+                 res: int = 64, max_fps: float = 8.0, size: int = 750,
                  title: str = "Energía (RMS)", head_center: tuple | None = None,
                  head_radius: float | None = None):
         """
