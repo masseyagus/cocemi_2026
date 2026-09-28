@@ -81,7 +81,7 @@ Un ejemplo:
 |***onset***|***duration***|***trial_type***|
 |:--:|:--:|:--:|
 |2.50|0.50|stimulus|
-|5.00||1.00|response|
+|5.00|1.00|response|
 |8.25|0.25|stimulus|
 
 
