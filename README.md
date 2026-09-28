@@ -22,13 +22,13 @@ La aplicación busca facilitar la inspección de señales previamente adquiridas
 
 | Área | Funcionalidades |
 |:---:|:---:|
-| **Señal** | Carga de archivos `.npy`, soporte multicanal y selección de canales. |
-| **Visualización** | Representación simultánea de canales, nombres de canales y eje temporal en segundos. |
+| **Señal** | Carga de archivos `.npy`, soporte multicanal y selección flexible de canales (índices individuales y rangos). |
+| **Visualización** | Representación simultánea de canales, nombres de canales, eje temporal y mapa topográfico de energía (topomap) sincronizado. |
 | **Procesamiento** | Detrending, eliminación de offset DC y filtros pasa-altos, pasa-bajos y notch opcionales. |
 | **Normalización** | Normalización independiente de cada canal mediante z-score. |
 | **Eventos** | Carga de eventos BIDS desde `.tsv` y representación mediante marcadores temporales. |
-| **Reproducción** | Reproducción, pausa, avance, retroceso y reproducción en bucle. |
-| **Interfaz** | Controles de reproducción, indicador de posición e interfaz gráfica basada en Qt y PyQtGraph. |
+| **Reproducción** | Reproducción, pausa, avance, retroceso y reproducción en bucle con velocidad ajustable. |
+| **Interfaz** | Lanzador de configuración gráfico con tema moderno (Azure), controles de reproducción e indicadores integrados. |
 
 ---
 
@@ -96,39 +96,23 @@ Para la visualización, la posición de los eventos se convierte nuevamente a se
 
 ## Interfaz
 
-La aplicación está compuesta por tres elementos principales:
+La aplicación cuenta con una interfaz de configuración de lanzamiento previa y tres componentes principales en la ventana del visor:
+
+### Lanzador de configuración
+
+Permite seleccionar los archivos .npy y .tsv mediante explorador de archivos y configurar todos los parámetros de filtrado, canales, refresco y visualización antes de iniciar la reproducción, eliminando la necesidad de comandos complejos por consola.
 
 ### Visualización de la señal
 
-`SignalDisplayWidget` se encarga de representar los canales de la señal y los eventos correspondientes.
+SignalDisplayWidget representa los canales seleccionados y los eventos correspondientes. La señal completa se carga una única vez en las curvas de PyQtGraph y la visualización se desplaza modificando únicamente el rango temporal visible.
 
-La señal completa se carga una única vez en las curvas de PyQtGraph. Durante la reproducción, la visualización se desplaza modificando únicamente el rango temporal visible, sin volver a extraer ni cargar ventanas de datos.
+### Mapa topográfico
 
-Cada canal se representa de manera independiente y se desplaza verticalmente para facilitar la visualización simultánea de múltiples señales.
+TopomapWidget muestra la distribución espacial de la energía de la señal en tiempo real mediante una proyección 2D basada en las posiciones del montaje 10-20.
 
-El eje temporal se representa en segundos y los eventos se muestran mediante marcadores verticales en sus posiciones temporales correspondientes.
+### Motor y controles de reproducción
 
-### Motor de reproducción
-
-`PlaybackEngine` controla la posición actual dentro de la señal.
-
-Es responsable de:
-
-* avanzar la reproducción;
-
-* retroceder;
-
-* pausar y reanudar;
-
-* desplazarse entre ventanas;
-
-* reiniciar la reproducción al alcanzar el final de la señal.
-
-El motor es independiente de la interfaz gráfica y comunica los cambios de posición mediante señales de Qt.
-
-### Controles de reproducción
-
-`PlaybackControls` proporciona los controles necesarios para interactuar con la reproducción y visualizar la posición actual.
+PlaybackEngine controla el avance temporal de forma independiente a la interfaz gráfica, mientras que PlaybackControls ofrece la interacción del usuario para reproducir, pausar y ajustar la navegación.
 
 ---
 
@@ -166,118 +150,56 @@ Durante la reproducción, `MainWindow` actualiza el rango temporal visible y la 
 
 ## Uso
 
-### Línea de comandos
+### Inicio de la aplicación
 
-El visor puede iniciarse mediante:
-
-```bash
-python main.py señal.npy
-```
-
-Para cargar también los eventos:
+Para abrir la interfaz de configuración gráfica, simplemente ejecuta en la terminal:
 
 ```bash
-python main.py señal.npy --events eventos.tsv
+python main.py
 ```
 
-Es posible especificar la frecuencia de muestreo:
+Al ejecutarse, se abrirá la ventana de configuración donde podrás:
 
-```bash
-python main.py señal.npy --events eventos.tsv --sfreq 250
-```
+**1. Seleccionar archivos:** Buscar tu archivo de señal `.npy` y el archivo opcional de eventos BIDS .tsv.
 
-También pueden configurarse los canales, el tamaño de la ventana, la escala
-vertical y los parámetros de reproducción y filtrado:
+**2. Seleccionar canales:** Definir los canales que deseas visualizar. Puedes ingresar índices individuales separados por espacio o coma, así como también rangos (ej. 0 2 5-10, 15). Si se deja en blanco, se visualizan todos los canales.
 
-```bash
-python main.py señal.npy \
-    --channels 0 2 4 \
-    --events eventos.tsv \
-    --sfreq 500 \
-    --window 1500 \
-    --scale 50 \
-    --highpass 0.5 \
-    --lowpass 100 \
-    --notch 50 \
-    --speed 0.25 \
-    --refresh 20
-```
+**3. Ajustar parámetros:** Configurar la frecuencia de muestreo, tamaño de ventana, ganancia, filtros (pasa-altos, pasa-bajos, notch) y velocidad de reproducción.
 
-### Argumentos disponibles
+**4. Mapa topográfico:** Activar la casilla de mapa topográfico e indicar el número de canales EEG iniciales si la señal contiene otros tipos de sensores (EMG/EOG).
 
-| Argumento | Descripción | Por defecto |
-|:---:|:---:|:---:|
-| `signal` | Archivo `.npy` con forma `(n_canales, n_muestras)`. | Obligatorio |
-| `--channels` | Índices de los canales a visualizar, separados por espacios. | `None` |
-| `--events` | Archivo `events.tsv` con los eventos en formato BIDS. | `None` |
-| `--sfreq` | Frecuencia de muestreo de la señal, en Hz. | `500.0` |
-| `--window` | Tamaño de la ventana visible, en muestras. | `1500` |
-| `--scale` | Factor de escala vertical entre canales. | `50.0` |
-| `--highpass` | Frecuencia de corte del filtro pasa-altos, en Hz. `0` lo desactiva. | `0.5` |
-| `--lowpass` | Frecuencia de corte del filtro pasa-bajos, en Hz. `0` lo desactiva. | `100.0` |
-| `--notch` | Frecuencia base para eliminar ruido de línea y sus múltiplos inferiores a Nyquist. `0` lo desactiva. | `50.0` |
-| `--speed` | Velocidad de reproducción. `1.0` corresponde a tiempo real; valores menores reproducen más lentamente. | `0.25` |
-| `--refresh` | Intervalo de actualización del temporizador, en milisegundos. | `20` |
-
-La interfaz de línea de comandos no requiere un archivo independiente para una señal filtrada. La preparación de la señal para visualización se realiza internamente cuando corresponde.
+Al presionar el botón **Lanzar Visor**, la ventana de configuración se cerrará e iniciará la reproducción interactiva.
 
 ---
 
 ## Uso desde Python
 
-También es posible iniciar el visor directamente desde Python:
+También es posible iniciar el visor programáticamente incluyendo la configuración de topografía y canales:
 
 ```python
 import numpy as np
-
+import numpy as np
 from gui.main_window import launch_viewer
 
-signal = np.load("signal.npy")
+signal = np.load("data/signal.npy")
 
 launch_viewer(
     signal=signal,
-    events_path="events.tsv",
-    sfreq=250.0,
-)
-```
-
-Los nombres de los canales pueden proporcionarse mediante `channel_names`:
-
-```python
-channel_names = [
-    "Fp1",
-    "Fp2",
-    "C3",
-    "C4",
-    "O1",
-    "O2",
-]
-
-launch_viewer(
-    signal=signal,
-    channel_names=channel_names,
-    events_path="events.tsv",
+    channels_idx=[0, 1, 2, 3, 4, 5],
+    events_path="data/events.tsv",
     sfreq=500.0,
+    window_size=1500,
+    scale_factor=50.0,
+    highpass=0.5,
+    lowpass=100.0,
+    notch=50.0,
+    playback_rate=0.25,
+    show_topomap=True,
+    n_eeg_channels=64,
+    topomap_fps=8.0,
+    montage_path="src/assets/montage/posiciones_64_canales.json"
 )
 ```
-
-También es posible indicar qué canales serán visualizados mediante `channels_idx`:
-
-```python
-channels_idx = [0, 2, 4]
-
-launch_viewer(
-    signal=signal,
-    channel_names=channel_names,
-    channels_idx=channels_idx,
-    events_path="events.tsv",
-    sfreq=250.0,
-)
-```
-
-La preparación de la señal para visualización puede configurarse mediante los parámetros `highpass`, `lowpass` y `notch`.
-
-La reproducción puede ajustarse mediante `refresh_ms`, que determina el intervalo de actualización del temporizador, y `playback_rate`, que controla el avance de la reproducción.
 
 ---
 
@@ -288,26 +210,34 @@ Una organización general del proyecto es:
 ```text
 cocemi_2026/
 ├── data
-│   └── obtain_data.ipynb
 ├── src
 │   ├── assets
-│   │   └── icons
-│   │       └── neuro_ia_logo.png
+│   │   ├── icons
+│   │   │   └── neuro_ia_logo.png
+│   │   └── montages
+│   │       └── posiciones_64_canales.json
 │   ├── gui
 │   │   ├── widgets
 │   │   │   ├── __init__.py
 │   │   │   ├── playback_controls.py
-│   │   │   └── signal_display_widget.py
+│   │   │   ├── signal_display_widget.py
+│   │   │   └── topomap_widget.py
 │   │   ├── __init__.py
+│   │   ├── launcher.py
 │   │   └── main_window.py
 │   └── utils
 │       ├── __init__.py
 │       ├── bids_events.py
 │       ├── filters.py
 │       └── playback_engine.py
+├── theme
+│   └── dark
+│   │   └── [40+ archivos .png de la interfaz (botones, checks, etc.)]
 ├── .gitignore
 ├── LICENSE.md
 ├── README.md
+├── THIRD_PARTY_LICENSES.md
+├── azure.tcl
 ├── environment.yml
 ├── main.py
 └── pyproject.toml
@@ -356,9 +286,9 @@ El proyecto utiliza:
 
 * **NumPy** para la representación y manipulación de las señales.
 
-* **SciPy** para el procesamiento mínimo de las señales mediante filtros y detrending.
+* **SciPy** para el procesamiento mínimo de señales mediante filtros y detrending, e interpolación espacial para el mapa topográfico.
 
-* **PyQt5** para la interfaz gráfica y el sistema de eventos.
+* **PyQt5 y Tkinter (con Azure-ttk-theme)** para la interfaz gráfica y formularios de lanzamiento.
 
 * **PyQtGraph** para la visualización interactiva de las señales.
 
@@ -417,6 +347,7 @@ La aplicación cargará la señal, preparará los canales para su visualización
 
 ---
 
-## Licencia
+## Licencia y Créditos de Terceros
+Este proyecto se distribuye bajo la licencia MIT indicada en el archivo [LICENSE.md](/LICENSE.md).
 
-Este proyecto se distribuye bajo la licencia indicada en el archivo [LICENSE.md](./LICENSE.md).
+Para conocer las atribuciones de derechos de autor y licencias de los componentes de terceros integrados en este repositorio (tema gráfico Azure-ttk-theme y coordenadas de montaje derivadas de MNE-Python), consulta el archivo [THIRD_PARTY_LICENSES.md](/THIRD_PARTY_LICENSES.md).
