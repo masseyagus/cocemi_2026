@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QApplication, QVBoxLayout, QWidget  #type: ignore
 
 from gui.widgets.playback_controls import PlaybackControls
 from gui.widgets.signal_display_widget import SignalDisplayWidget
+from gui.widgets.topomap_widget import TopomapWidget
 from utils.bids_events import load_bids_events
 from utils.filters import prepare_for_display
 from utils.playback_engine import PlaybackEngine
@@ -19,15 +20,15 @@ class MainWindow(QWidget):
 
     Integra el motor de reproducción, el widget de visualización y los
     controles de reproducción. Recibe una señal multicanal en memoria,
-    permite seleccionar los canales que serán visualizados y configura
-    la señal completa y sus eventos en el widget de visualización.
+    permite seleccionar los canales que serán visualizados y configura la
+    señal completa y sus eventos en el widget de visualización.
 
     Antes de la reproducción, la señal seleccionada puede someterse a un
-    filtrado mínimo para visualización mediante filtros pasa-altos, pasa-bajos
-    y notch. La señal resultante se centra por canal y se normaliza mediante
+    filtrado para visualización mediante filtros pasa-altos, pasa-bajos y
+    notch. La señal resultante se centra por canal y se normaliza mediante
     z-score utilizando la desviación estándar calculada sobre la señal
-    excluyendo el 1 % de cada extremo para reducir la influencia de artefactos
-    de borde.
+    excluyendo el 1 % de cada extremo para reducir la influencia de
+    artefactos de borde.
 
     Los canales seleccionados se colorean según el tipo de señal al que
     pertenecen. La asignación de tipos y colores se define mediante
@@ -35,9 +36,17 @@ class MainWindow(QWidget):
     Los colores correspondientes se proporcionan al widget de visualización
     junto con los elementos utilizados para construir la leyenda.
 
+    Opcionalmente, la ventana puede mostrar un topomap EEG dinámico mediante
+    `TopomapWidget`. El topomap utiliza las posiciones espaciales definidas
+    en un archivo de montage y se actualiza durante la reproducción a partir
+    de la ventana temporal correspondiente a la posición actual de la señal.
+    La frecuencia máxima de actualización del topomap se controla mediante
+    `topomap_fps`.
+
     La señal completa se carga una única vez en el widget de visualización,
     utilizando un eje temporal expresado en segundos. Durante la reproducción,
-    únicamente se actualiza el rango temporal visible.
+    únicamente se actualiza el rango temporal visible y, si el topomap está
+    habilitado, sus valores correspondientes a la ventana actual.
 
     La reproducción se controla mediante un `QTimer`, que ejecuta
     periódicamente `PlaybackEngine.tick()`. La velocidad de avance se
@@ -73,11 +82,21 @@ class MainWindow(QWidget):
         lowpass (float or None): Frecuencia de corte del filtro pasa-bajos
             utilizado para la preparación de la señal. Si es `None`, no se
             aplica este filtro.
-
+        show_topomap (bool): Indica si se debe crear y mostrar el topomap
+            dinámico durante la reproducción.
+        montage_path (str, optional): Ruta al archivo de montage utilizado
+            para obtener las posiciones espaciales de los canales del
+            topomap. Es obligatorio cuando `show_topomap` es `True`.
+        n_eeg_channels (int, optional): Cantidad de canales EEG considerados
+            para la generación del topomap a partir del montage.
+        topomap_fps (float): Frecuencia máxima de actualización del topomap,
+            expresada en imágenes por segundo.
+    
     Raises:
         ValueError: Si `signal` no es un array bidimensional, si
-            `channels_idx` está vacío o si la cantidad de `channel_names`
-            no coincide con el número de canales de la señal.
+            `channels_idx` está vacío, si la cantidad de `channel_names`
+            no coincide con el número de canales de la señal o si se solicita
+            el topomap sin proporcionar `montage_path`.
         IndexError: Si algún índice de `channels_idx` está fuera del rango
             de canales de la señal.
     """
@@ -88,7 +107,9 @@ class MainWindow(QWidget):
                  window_size: int = 1500, scale_factor: float = 50,
                  refresh_ms: int = 20,
                  highpass: float | None = 0.5, notch: float | None = 50.0,
-                 playback_rate: float = 0.25, lowpass: float | None = 100):
+                 playback_rate: float = 0.25, lowpass: float | None = 100,
+                 show_topomap: bool = False, montage_path: str | None = None,
+                 n_eeg_channels: int | None = None, topomap_fps: float = 8.0):
         """
         Inicializa la ventana principal y sus componentes de reproducción.
 
@@ -109,6 +130,11 @@ class MainWindow(QWidget):
         EMG y EOG. Los colores resultantes se proporcionan al widget de
         visualización junto con la información necesaria para construir la
         leyenda por tipo de señal.
+
+        Si `show_topomap` está habilitado, se crea un `TopomapWidget` utilizando
+        las posiciones definidas en `montage_path`. El topomap se asocia al
+        widget de visualización y se actualiza durante la reproducción a partir
+        de la ventana temporal correspondiente a la posición actual.
 
         Finalmente, crea el widget de visualización con la señal completa y sus
         eventos, configura los controles de reproducción y establece el
@@ -147,14 +173,23 @@ class MainWindow(QWidget):
             lowpass (float or None): Frecuencia de corte del filtro pasa-bajos
                 aplicado durante la preparación para visualización. Si es
                 `None`, se omite.
+            show_topomap (bool): Indica si se debe mostrar el topomap dinámico.
+            montage_path (str, optional): Ruta al archivo de montage que contiene
+                las posiciones espaciales de los canales. Es obligatorio cuando
+                `show_topomap` es `True`.
+            n_eeg_channels (int, optional): Número de canales EEG considerados
+                para obtener las posiciones utilizadas por el topomap.
+            topomap_fps (float): Frecuencia máxima de actualización del topomap
+                en imágenes por segundo.
 
         Returns:
             None
 
         Raises:
             ValueError: Si `signal.ndim` es diferente de 2, si `channels_idx`
-                está vacío o si la cantidad de `channel_names` no coincide con
-                el número de canales de la señal.
+                está vacío, si la cantidad de `channel_names` no coincide con
+                el número de canales de la señal o si `show_topomap` es `True`
+                sin proporcionar `montage_path`.
             IndexError: Si algún índice de `channels_idx` está fuera del rango
                 de la señal.
         """
@@ -265,6 +300,16 @@ class MainWindow(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
+        self.topomap = None
+        if show_topomap:
+            if not montage_path:
+                raise ValueError("show_topomap=True requiere 'montage_path'.")
+            self.topomap = TopomapWidget.from_montage(
+                montage_path, self.channels_idx, channel_names=channel_names,
+                n_eeg_channels=n_eeg_channels, max_fps=topomap_fps,
+            )
+            self.topomap.attach_to(self.display)
+
         self._connect_signals()
 
         time_axis = np.arange(self.n_samples) / self.sfreq
@@ -310,16 +355,19 @@ class MainWindow(QWidget):
 
     def _refresh_view(self, pos: int):
         """
-        Actualiza el rango temporal visible de la señal para una posición
-        determinada.
+        Actualiza la visualización para una posición determinada.
 
-        Convierte los límites de la ventana, expresados en muestras, a segundos
-        utilizando la frecuencia de muestreo de la señal y actualiza el rango
-        visible del widget de visualización. También actualiza la etiqueta de
-        posición de los controles.
+        Convierte los límites de la ventana de reproducción, expresados en
+        muestras, a segundos utilizando la frecuencia de muestreo y actualiza
+        el rango temporal visible del widget de señales. También actualiza la
+        etiqueta de posición de los controles.
+
+        Si el topomap está habilitado, extrae la ventana de señal correspondiente
+        a la posición actual y la proporciona al `TopomapWidget` para actualizar
+        el mapa topográfico.
 
         Args:
-            pos (int): Posición final de la ventana en muestras.
+            pos (int): Posición final de la ventana de reproducción en muestras.
 
         Returns:
             None
@@ -329,6 +377,10 @@ class MainWindow(QWidget):
 
         self.display.set_view_range(start_sec, end_sec) # type: ignore
         self.controls.set_position_label(pos, self.n_samples)
+
+        if self.topomap is not None:
+            start = max(0, pos - self.engine.window_size)
+            self.topomap.update_from_window(self.signal[:, start:pos])
 
     def closeEvent(self, event): # type: ignore
         """
@@ -353,7 +405,9 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
                    sfreq: float = 500.0, refresh_ms: int = 20,
                    window_size: int = 1500, scale_factor: float = 50,
                    highpass: float | None = 0.5, notch: float | None = 50.0,
-                   playback_rate: float = 0.25, lowpass: float | None = 100):
+                   playback_rate: float = 0.25, lowpass: float | None = 100,
+                   show_topomap: bool = False, montage_path: str | None = None,
+                   n_eeg_channels: int | None = None, topomap_fps: float = 8.0):
     """
     Inicia la aplicación gráfica para visualizar y reproducir una señal.
 
@@ -362,6 +416,12 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
     visualización, filtrado y reproducción. La señal puede ser preparada
     mediante filtros pasa-altos, pasa-bajos y notch antes de su visualización,
     seguida de una normalización por canal.
+
+    También permite habilitar un topomap EEG dinámico mediante
+    `show_topomap`. Cuando está habilitado, se utilizan las posiciones
+    espaciales definidas en `montage_path` y el mapa se actualiza durante
+    la reproducción. La frecuencia máxima de actualización del topomap
+    se controla mediante `topomap_fps`.
 
     Args:
         signal (np.ndarray):
@@ -377,21 +437,21 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
             no se cargan eventos.
         sfreq (float, optional):
             Frecuencia de muestreo de la señal en Hz. Por defecto, `500.0`.
+        refresh_ms (int, optional):
+            Intervalo de actualización de la reproducción en milisegundos.
+            Por defecto, `20`.
         window_size (int, optional):
             Cantidad de muestras correspondientes a la ventana visible.
             Por defecto, `1500`.
         scale_factor (float, optional):
             Factor de escala vertical aplicado a las señales para su
             visualización. Por defecto, `50`.
-        refresh_ms (int, optional):
-            Intervalo de actualización de la reproducción en milisegundos.
-            Por defecto, `20`.
         highpass (float | None, optional):
-            Frecuencia de corte del filtro pasa-altos en Hz. Si es `None` o
-            no se especifica, no se aplica este filtro. Por defecto, `0.5`.
+            Frecuencia de corte del filtro pasa-altos en Hz. Si es `None`,
+            no se aplica este filtro. Por defecto, `0.5`.
         lowpass (float | None, optional):
-            Frecuencia de corte del filtro pasa-bajos en Hz. Si es `None` o
-            no se especifica, no se aplica este filtro. Por defecto, `100.0`.
+            Frecuencia de corte del filtro pasa-bajos en Hz. Si es `None`,
+            no se aplica este filtro. Por defecto, `100.0`.
         notch (float | None, optional):
             Frecuencia base del filtro notch en Hz. A partir de esta
             frecuencia se generan sus múltiplos por debajo de la frecuencia
@@ -400,12 +460,28 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
         playback_rate (float, optional):
             Factor utilizado para controlar la velocidad de avance de la
             reproducción. Por defecto, `0.25`.
+        show_topomap (bool, optional):
+            Indica si se debe mostrar el topomap dinámico durante la
+            reproducción. Por defecto, `False`.
+        montage_path (str | None, optional):
+            Ruta al archivo de montage con las posiciones espaciales de los
+            canales. Es necesario cuando `show_topomap` es `True`.
+        n_eeg_channels (int | None, optional):
+            Cantidad de canales EEG considerados para construir el topomap.
+            Por defecto, `None`.
+        topomap_fps (float, optional):
+            Frecuencia máxima de actualización del topomap, en imágenes por
+            segundo. Por defecto, `8.0`.
 
     Notes:
         Los parámetros de filtrado se utilizan para preparar la señal antes
         de su visualización. El intervalo `refresh_ms` y `playback_rate`
         determinan conjuntamente el avance de la reproducción entre
         actualizaciones.
+
+        Cuando `show_topomap` está habilitado, `montage_path` proporciona
+        las posiciones espaciales utilizadas para representar la distribución
+        topográfica de la señal.
     """
     app = QApplication.instance() or QApplication(sys.argv)
     window = MainWindow(
@@ -420,7 +496,11 @@ def launch_viewer(signal: np.ndarray, channel_names: None | list = None,
         notch=notch,
         playback_rate=playback_rate,
         lowpass=lowpass,
-        refresh_ms=refresh_ms
+        refresh_ms=refresh_ms,
+        montage_path=montage_path,
+        show_topomap=show_topomap,
+        n_eeg_channels=n_eeg_channels,
+        topomap_fps=topomap_fps
     )
     window.show()
     sys.exit(app.exec_())
