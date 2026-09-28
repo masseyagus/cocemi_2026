@@ -6,7 +6,7 @@
 
 Visor y reproductor interactivo de señales biomédicas multicanal desarrollado en Python para la asistencia del NueroIA Lab a la [Ronda COCEMI 2026](https://rondacocemi.uy/).
 
-La aplicación permite cargar una señal almacenada en formato `.npy` junto con un archivo de eventos `.tsv`, procesar y preparar la señal para su correcta visualización, representar los canales seleccionados junto a sus respectivos marcadores temporales y recorrerlos de forma interactiva mediante controles de reproducción.
+La aplicación permite cargar una señal almacenada en formato **.npy** junto con un archivo de eventos **.tsv**, procesar y preparar la señal para su correcta visualización, representar los canales seleccionados junto a sus respectivos marcadores temporales y recorrerlos de forma interactiva mediante controles de reproducción.
 
 ---
 
@@ -22,7 +22,7 @@ La aplicación busca facilitar la inspección de señales previamente adquiridas
 
 | Área | Funcionalidades |
 |:---:|:---:|
-| **Señal** | Carga de archivos `.npy`, soporte multicanal y selección flexible de canales (índices individuales y rangos). |
+| **Señal** | Carga de archivos **.npy**, soporte multicanal y selección flexible de canales (índices individuales y rangos). |
 | **Visualización** | Representación simultánea de canales, nombres de canales, eje temporal y mapa topográfico de energía (topomap) sincronizado. |
 | **Procesamiento** | Detrending, eliminación de offset DC y filtros pasa-altos, pasa-bajos y notch opcionales. |
 | **Normalización** | Normalización independiente de cada canal mediante z-score. |
@@ -38,7 +38,7 @@ La aplicación recibe dos archivos principales:
 
 ### Señal
 
-La señal debe almacenarse en un archivo NumPy (`.npy`) como un array bidimensional:
+La señal debe almacenarse en un archivo NumPy (**.npy**) como un array bidimensional:
 
 ```text
 (n_canales, n_muestras)
@@ -60,7 +60,7 @@ Posteriormente, los canales seleccionados se normalizan de forma independiente m
 
 ### Eventos
 
-Los eventos se proporcionan mediante un archivo `events.tsv` siguiendo la estructura utilizada por BIDS.
+Los eventos se proporcionan mediante un archivo **events.tsv** siguiendo la estructura utilizada por BIDS.
 
 Como mínimo, el archivo debe contener la columna:
 
@@ -78,17 +78,14 @@ trial_type
 
 Un ejemplo:
 
-```text
-onset   duration    trial_type
+|***onset***|***duration***|***trial_type***|
+|:--:|:--:|:--:|
+|2.50|0.50|stimulus|
+|5.00||1.00|response|
+|8.25|0.25|stimulus|
 
-2.50    0.50        stimulus
 
-5.00    1.00        response
-
-8.25    0.25        stimulus
-```
-
-Los valores de `onset` y `duration` se expresan en segundos. Durante la carga, estos valores se convierten a muestras utilizando la frecuencia de muestreo de la señal.
+Los valores de **onset** y **duration** se expresan en segundos. Durante la carga, estos valores se convierten a muestras utilizando la frecuencia de muestreo de la señal.
 
 Para la visualización, la posición de los eventos se convierte nuevamente a segundos, de modo que los marcadores y la señal utilizan la misma escala temporal.
 
@@ -100,19 +97,19 @@ La aplicación cuenta con una interfaz de configuración de lanzamiento previa y
 
 ### Lanzador de configuración
 
-Permite seleccionar los archivos .npy y .tsv mediante explorador de archivos y configurar todos los parámetros de filtrado, canales, refresco y visualización antes de iniciar la reproducción, eliminando la necesidad de comandos complejos por consola.
+Permite seleccionar los archivos **.npy** y **.tsv** mediante explorador de archivos y configurar todos los parámetros de filtrado, canales, refresco y visualización antes de iniciar la reproducción, eliminando la necesidad de comandos complejos por consola.
 
 ### Visualización de la señal
 
-SignalDisplayWidget representa los canales seleccionados y los eventos correspondientes. La señal completa se carga una única vez en las curvas de PyQtGraph y la visualización se desplaza modificando únicamente el rango temporal visible.
+`SignalDisplayWidget` representa los canales seleccionados y los eventos correspondientes. La señal completa se carga una única vez en las curvas de **PyQtGraph** y la visualización se desplaza modificando únicamente el rango temporal visible.
 
 ### Mapa topográfico
 
-TopomapWidget muestra la distribución espacial de la energía de la señal en tiempo real mediante una proyección 2D basada en las posiciones del montaje 10-20.
+TopomapWidget muestra la distribución espacial de la energía de la señal en tiempo real mediante una proyección 2D basada en las posiciones del **montaje 10-20**.
 
 ### Motor y controles de reproducción
 
-PlaybackEngine controla el avance temporal de forma independiente a la interfaz gráfica, mientras que PlaybackControls ofrece la interacción del usuario para reproducir, pausar y ajustar la navegación.
+`PlaybackEngine` controla el avance temporal de forma independiente a la interfaz gráfica, mientras que PlaybackControls ofrece la interacción del usuario para reproducir, pausar y ajustar la navegación.
 
 ---
 
@@ -138,9 +135,9 @@ La aplicación mantiene separadas las responsabilidades principales:
              Eventos BIDS
 ```
 
-`MainWindow` funciona como componente de integración principal. Se encarga de conectar el motor de reproducción con la visualización de la señal, el mapa topográfico de energía y los controles, además de preparar los canales seleccionados, configurar la señal completa y cargar los eventos en los widgets correspondientes.
+**MainWindow** funciona como componente de integración principal. Se encarga de conectar el motor de reproducción con la visualización de la señal, el mapa topográfico de energía y los controles, además de preparar los canales seleccionados, configurar la señal completa y cargar los eventos en los widgets correspondientes.
 
-Durante la reproducción, `MainWindow` coordina las actualizaciones notificadas por `PlaybackEngine`: actualiza el rango temporal visible en `SignalDisplayWidget`, recalcula la distribución de energía mostrada en `TopomapWidget` y refresca el indicador de posición en `PlaybackControls`.
+Durante la reproducción, **MainWindow** coordina las actualizaciones notificadas por **PlaybackEngine**: actualiza el rango temporal visible en **SignalDisplayWidget**, recalcula la distribución de energía mostrada en **TopomapWidget** y refresca el indicador de posición en **PlaybackControls**.
 
 ---
 
@@ -152,11 +149,12 @@ Para abrir la interfaz de configuración gráfica, simplemente ejecuta en la ter
 
 ```bash
 python main.py
+
 ```
 
 Al ejecutarse, se abrirá la ventana de configuración donde podrás:
 
-**1. Seleccionar archivos:** Buscar tu archivo de señal `.npy` y el archivo opcional de eventos BIDS .tsv.
+**1. Seleccionar archivos:** Buscar tu archivo de señal **.npy** y el archivo opcional de eventos BIDS .tsv.
 
 **2. Seleccionar canales:** Definir los canales que deseas visualizar. Puedes ingresar índices individuales separados por espacio o coma, así como también rangos (ej. 0 2 5-10, 15). Si se deja en blanco, se visualizan todos los canales.
 
@@ -177,7 +175,6 @@ Al presionar el botón **Lanzar Visor**, la ventana de configuración se cerrar�
 También es posible iniciar el visor programáticamente incluyendo la configuración de topografía y canales:
 
 ```python
-import numpy as np
 import numpy as np
 from gui.main_window import launch_viewer
 
@@ -231,8 +228,12 @@ cocemi_2026/
 │       ├── filters.py
 │       └── playback_engine.py
 ├── theme
-│   └── dark
-│   │   └── [40+ archivos .png de la interfaz (botones, checks, etc.)]
+│   ├── dark
+│   │   └── [60+ archivos .png del tema oscuro]
+│   ├── light
+│   │   └── [60+ archivos .png del tema claro]
+│   ├── dark.tcl
+│   └── light.tcl
 ├── .gitignore
 ├── LICENSE.md
 ├── README.md
@@ -243,7 +244,7 @@ cocemi_2026/
 └── pyproject.toml
 ```
 
-Los archivos de datos (señal y eventos) pueden almacenarse en una carpeta `data/` para mantenerlos separados del código fuente.
+Los archivos de datos (señal y eventos) pueden almacenarse en una carpeta **data/** para mantenerlos separados del código fuente.
 
 ---
 
@@ -270,9 +271,9 @@ Señal completa
                        tiempo
 ```
 
-El `PlaybackEngine` modifica progresivamente la posición de la ventana.
+El **PlaybackEngine** modifica progresivamente la posición de la ventana.
 
-Cada cambio de posición actualiza únicamente el rango temporal visible del gráfico. La señal y los eventos permanecen cargados en `SignalDisplayWidget`, evitando volver a extraer y transferir los datos correspondientes a cada ventana.
+Cada cambio de posición actualiza únicamente el rango temporal visible del gráfico. La señal y los eventos permanecen cargados en **SignalDisplayWidget**, evitando volver a extraer y transferir los datos correspondientes a cada ventana.
 
 Cuando se alcanza el final de la señal, la reproducción vuelve al inicio de la ventana y continúa en bucle.
 
@@ -292,7 +293,7 @@ El proyecto utiliza:
 
 * **PyQtGraph** para la visualización interactiva de las señales.
 
-* **Pandas** para la lectura de los archivos de eventos `.tsv`.
+* **Pandas** para la lectura de los archivos de eventos **.tsv**.
 
 ---
 
@@ -309,41 +310,17 @@ El proyecto utiliza:
    ```
 
 3. **Instalar la librería en modo editable:**  
-   Instala este mismo paquete (`cocemi`) en modo editable para que cualquier modificación en el código fuente de la interfaz se aplique de inmediato sin necesidad de reinstalar:
+   Instala este mismo paquete (***cocemi***) en modo editable para que cualquier modificación en el código fuente de la interfaz se aplique de inmediato sin necesidad de reinstalar:
    ```bash
    pip install -e .
    ```
 
 4. **Soporte para archivos HDF5 o XDF (Opcional):**  
    Si necesitas soporte para leer formatos HDF5 o XDF, puedes utilizar la Jupyter Notebook `obtain_data.ipynb`. Sin embargo, para su uso debes añadir al entorno la librería [pyhwr](https://github.com/lucasbaldezzari/pyhwr.git) de [Lucas Baldezzari](https://github.com/lucasbaldezzari). Para ello, clona su repositorio y, desde la raíz del paquete con tu entorno activo, ejecútalo en modo de compatibilidad:
+
    ```bash
    pip install -e . --config-settings editable_mode=compat
    ```
-
----
-
-## Ejemplo completo
-
-Suponiendo la siguiente estructura:
-
-```text
-cocemi_2026/
-
-├── data/
-│   ├── signal.npy
-│   └── events.tsv
-└── main.py
-```
-
-el visor puede iniciarse ejecutando:
-
-```bash
-python main.py data/signal.npy \
-    --events data/events.tsv \
-    --sfreq 250
-```
-
-La aplicación cargará la señal, preparará los canales para su visualización según la configuración establecida, mostrará los canales seleccionados, superpondrá los eventos correspondientes y permitirá reproducir la señal mediante los controles de la interfaz.
 
 ---
 
