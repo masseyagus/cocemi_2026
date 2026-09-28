@@ -86,7 +86,7 @@ class LauncherGUI:
             topomap. Una cadena vacía representa `None`.
     """
 
-    def __init__(self, root):
+    def __init__(self, root, path_montage):
         """
         Inicializa la ventana de configuración del lanzador.
 
@@ -108,6 +108,7 @@ class LauncherGUI:
             None
         """
         self.root = root
+        self.montage = path_montage
         self.root.title("NeuroIA - Configuración de Lanzamiento")
         self.root.geometry("650x740")
         self.root.resizable(False, False)
@@ -300,7 +301,7 @@ class LauncherGUI:
                 topomap_fps=self.topomap_fps_var.get(),
                 show_topomap=self.topomap_var.get(),
                 n_eeg_channels=n_eeg,
-                montage_path="src/utils/posiciones_64_canales.json"
+                montage_path=self.montage
             )
             
         except ValueError as e:
