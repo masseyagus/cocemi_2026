@@ -52,6 +52,16 @@ def main():
     path = "src/assets/montages/posiciones_64_canales.json"
 
     app = LauncherGUI(root, path_montage=path)  # noqa: F841
+
+    root.update_idletasks()
+    
+    # Obtener las dimensiones exactas requeridas por el contenido
+    req_width = root.winfo_reqwidth()
+    req_height = root.winfo_reqheight()
+    
+    root.geometry(f"{req_width}x{req_height}")
+    root.resizable(False, False)
+
     root.mainloop()
 
 if __name__ == "__main__":
