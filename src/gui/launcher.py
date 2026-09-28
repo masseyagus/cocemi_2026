@@ -168,7 +168,7 @@ class LauncherGUI:
         
         self.speed_var = tk.DoubleVar(value=0.8)
         self.refresh_var = tk.IntVar(value=20)
-        self.topomap_var = tk.BooleanVar(value=False)
+        self.topomap_var = tk.BooleanVar(value=True)
         self.topomap_fps_var = tk.DoubleVar(value=8.0)
         self.n_eeg_var = tk.StringVar() # StringVar para permitir vacío (None)
         
