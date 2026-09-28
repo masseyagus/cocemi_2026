@@ -2,7 +2,7 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-import numpy as np
+import numpy as np  # type: ignore
 
 from gui.main_window import launch_viewer
 
@@ -120,7 +120,7 @@ class LauncherGUI:
         self.root.iconphoto(False, icon)
         
         # Frame principal con padding
-        main_frame = ttk.Frame(root, padding="15")
+        main_frame = ttk.Frame(root, padding="10 6 10 6")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
         # --- SECCIÓN 1: ARCHIVOS ---
