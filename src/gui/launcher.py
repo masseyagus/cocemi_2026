@@ -1,4 +1,5 @@
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 import numpy as np
@@ -112,6 +113,11 @@ class LauncherGUI:
         self.root.title("NeuroIA - Configuración de Lanzamiento")
         self.root.geometry("650x740")
         self.root.resizable(False, False)
+
+        icon_parent = Path(__file__).resolve().parent
+        path_icon = icon_parent.parent / "assets" / "icons" / "neuro_ia_logo.png"
+        icon = tk.PhotoImage(file=str(path_icon))
+        self.root.iconphoto(False, icon)
         
         # Frame principal con padding
         main_frame = ttk.Frame(root, padding="15")
