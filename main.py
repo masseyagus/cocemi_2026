@@ -49,7 +49,9 @@ def main():
     except Exception as e:
         print(f"Error al cargar el tema Azure: {e}")
 
-    app = LauncherGUI(root)  # noqa: F841
+    path = "src/assets/montages/posiciones_64_canales.json"
+
+    app = LauncherGUI(root, path_montage=path)  # noqa: F841
     root.mainloop()
 
 if __name__ == "__main__":
