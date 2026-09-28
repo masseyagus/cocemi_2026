@@ -146,11 +146,11 @@ class LauncherGUI:
         param_frame.pack(fill=tk.X, pady=5)
         
         # Variables con sus valores por defecto
-        self.sfreq_var = tk.DoubleVar(value=500.0)
-        self.window_var = tk.IntVar(value=1500)
-        self.scale_var = tk.DoubleVar(value=50.0)
-        self.highpass_var = tk.DoubleVar(value=0.5)
-        self.lowpass_var = tk.DoubleVar(value=100.0)
+        self.sfreq_var = tk.DoubleVar(value=1200.0)
+        self.window_var = tk.IntVar(value=3800)
+        self.scale_var = tk.DoubleVar(value=45.0)
+        self.highpass_var = tk.DoubleVar(value=5)
+        self.lowpass_var = tk.DoubleVar(value=60.0)
         self.notch_var = tk.DoubleVar(value=50.0)
         
         self.create_param_grid(param_frame, [
@@ -166,7 +166,7 @@ class LauncherGUI:
         misc_frame = ttk.LabelFrame(main_frame, text="Reproducción y Extras", padding="10")
         misc_frame.pack(fill=tk.X, pady=5)
         
-        self.speed_var = tk.DoubleVar(value=0.25)
+        self.speed_var = tk.DoubleVar(value=0.8)
         self.refresh_var = tk.IntVar(value=20)
         self.topomap_var = tk.BooleanVar(value=False)
         self.topomap_fps_var = tk.DoubleVar(value=8.0)
