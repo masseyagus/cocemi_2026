@@ -295,6 +295,8 @@ El proyecto utiliza:
 
 * **Pandas** para la lectura de los archivos de eventos **.tsv**.
 
+* **MNE** para el dibujo de mapa topográfico.
+
 ---
 
 ## Instalación
